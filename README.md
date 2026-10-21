@@ -1,6 +1,6 @@
 # DiffIon
 
-A shared workspace for scientific Python research.
+A shared workspace for CBE236 project. Built for differentiable solver for ion transport and electrochemistry. 
 
 ```text
 diffion/
@@ -12,6 +12,4 @@ diffion/
 └── agent/       # Future experiment automation
 ```
 
-Folders are placeholders; no research methods are implemented yet.
-Add code to the relevant folder and use pull requests to combine contributions.
-Keep private plans, data, and results outside the shared repository.
+
