@@ -1,6 +1,0 @@
-# Python 3.13; versions used for the reported results
-jax[cpu]==0.12.0.1
-equinox==0.13.8
-numpy==2.5.3
-torch==2.14.1
-matplotlib==3.11.2

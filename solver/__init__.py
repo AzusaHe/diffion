@@ -1,4 +1,9 @@
-"""Differentiable 1D concentrated-solution transport (JAX, float64).
+"""Forward physics: transport models and their numerical solvers (JAX, float64).
+
+transport_1d  compact model for the optimizer baselines (inverse/): thermodynamic factor 1, Vbar = 0.1,
+              backward Euler, one fixed true material.
+
+The modules below form the model behind the networks and test-time training (surrogate/, pinn/):
 
     dc/dt + d(q + c v)/dx = 0,   q = -D(c) alpha(c) dc/dx + t+(c) iota,   dv/dx = -V(c) dq/dx,
     J = q + c v = iota at both walls,  v = 0 at x = 0,  c(x, 0) = 1.

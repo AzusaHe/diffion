@@ -1,6 +1,6 @@
 """Progress-report figures A1-A6 (one or two messages each).
 
-    python -m analysis.figures
+    python -m analysis.stage2_figures
 
   A1 errors           MSE of ln D and t+ per material, supervised vs after TTT
   A2 error_reduction  RMS error ratio supervised / TTT for ln D, t+, ln[(1 - t+)/D]
@@ -21,7 +21,7 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from .load import ARCHS, NAME, RESULTS, SEEDS, Results  # noqa: E402
+from .stage2_load import ARCHS, NAME, RESULTS, SEEDS, Results  # noqa: E402
 
 OUT = RESULTS / "figures"
 BLUE, ORANGE, GREY = "#2a78d6", "#eb6834", "#6b6b6b"

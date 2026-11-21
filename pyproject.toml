@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffion"
+version = "0.1.0"
+description = "Differentiable solvers and inverse methods for ion transport in electrolytes"
+requires-python = ">=3.10"
+dependencies = [
+    "jax[cpu]",
+    "equinox",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "torch",
+    "cma",
+    "scikit-optimize",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["solver*", "inverse*", "analysis*", "pinn*", "surrogate*", "agent*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

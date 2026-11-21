@@ -1,6 +1,6 @@
 """Every number quoted in the progress report, from results/stage2.
 
-    python -m analysis.summary            -> results/stage2/summary.txt and summary.json
+    python -m analysis.stage2_summary           -> results/stage2/summary.txt and summary.json
 """
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import json
 
 import numpy as np
 
-from .figures import REDUCTION, error_reduction
-from .load import ARCHS, NAME, RESULTS, SEEDS, Results
+from .stage2_figures import REDUCTION, error_reduction
+from .stage2_load import ARCHS, NAME, RESULTS, SEEDS, Results
 
 METRICS = ("mse_lnD", "mse_tplus", "D_relL2_pct", "group_rmse")
 
