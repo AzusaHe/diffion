@@ -1,0 +1,38 @@
+Stage 2: 300 test materials x 3 seeds.  Median over materials per seed; mean of the seed medians [min, max].
+
+mse_lnD
+  mlp_sup  0.009117 [0.00899, 0.00933]
+  mlp_ttt  0.004731 [0.00463, 0.00484]
+  fno_sup  0.00819 [0.00797, 0.00833]
+  fno_ttt  0.003486 [0.00328, 0.0037]
+mse_tplus
+  mlp_sup  0.002654 [0.00255, 0.0028]
+  mlp_ttt  0.001388 [0.00126, 0.00154]
+  fno_sup  0.002061 [0.002, 0.00217]
+  fno_ttt  0.001003 [0.001, 0.00101]
+D_relL2_pct
+  mlp_sup  9.09 [8.87, 9.36]
+  mlp_ttt  6.553 [6.43, 6.68]
+  fno_sup  8.393 [8.16, 8.52]
+  fno_ttt  5.477 [5.39, 5.54]
+group_rmse
+  mlp_sup  0.07174 [0.0712, 0.0727]
+  mlp_ttt  0.01332 [0.0129, 0.0136]
+  fno_sup  0.05603 [0.055, 0.0578]
+  fno_ttt  0.01251 [0.0124, 0.0126]
+
+MLP TTT: lr 0.0001, 150 steps; error reduction mse_lnD 1.39x, mse_tplus 1.39x, group_rmse 5.39x; improved 78 %, halved 44 %
+   mse_lnD vs step: 0:0.009117  5:0.01075  10:0.01016  25:0.008999  50:0.006725  100:0.005223  150:0.004731
+   pde_loss vs step: 0:0.07597  5:0.02135  10:0.01458  25:0.007336  50:0.005013  100:0.004444  150:0.004213
+FNO TTT: lr 0.0001, 150 steps; error reduction mse_lnD 1.53x, mse_tplus 1.43x, group_rmse 4.48x; improved 84 %, halved 57 %
+   mse_lnD vs step: 0:0.00819  5:0.008488  10:0.008227  25:0.006815  50:0.005235  100:0.003889  150:0.003486
+   pde_loss vs step: 0:0.0449  5:0.0151  10:0.01029  25:0.006134  50:0.004623  100:0.004123  150:0.003921
+PDE loss at the true coefficients: 0.00517
+
+FNO vs MLP (sup, mse_lnD): FNO lower on 56 % of materials, median ratio 0.90
+FNO vs MLP (sup, mse_tplus): FNO lower on 66 % of materials, median ratio 0.79
+FNO vs MLP (ttt, mse_lnD): FNO lower on 75 % of materials, median ratio 0.78
+FNO vs MLP (ttt, mse_tplus): FNO lower on 76 % of materials, median ratio 0.76
+
+MLP: 65,048 parameters, training 0.4 min (2.7e+11 FLOPs), best val coef MSE 0.0239-0.0251, TTT 0.25 s/material
+FNO: 65,807 parameters, training 8.9 min (1.9e+12 FLOPs), best val coef MSE 0.0214-0.0219, TTT 0.69 s/material

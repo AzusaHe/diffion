@@ -1,0 +1,8 @@
+{
+ "step_s_median": 0.03286329450008907,
+ "step_s_mean": 0.033007995219991246,
+ "flops_step": 118023168,
+ "flops_infer": 637584,
+ "n_params": 65807,
+ "arch": "fno"
+}
