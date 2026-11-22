@@ -90,6 +90,21 @@ python -m inverse.gradfree --start center  --methods NM CMAES --out "results/gra
 python -m inverse.gradfree --start fno_ttt --methods BO --materials 0:30 --budget 300 --out "results/gradfree/A_fno_ttt"
 ```
 
+Results (run on one PC, 8 processes in parallel; one evaluation is about 31 ms). Medians over the materials that reached each target:
+
+| Method | Input | Reached 0.01 % | Evaluations to 1 % / 0.1 % / 0.01 % (median) | Time to 0.01 % (median) | D error at stop (median) |
+| --- | --- | --- | --- | --- | --- |
+| NM | A · FNO + TTT | 299/300 | 1 / 84 / 588 | 10.2 s | 3.4 % |
+| NM | B · generic | 278/300 | 45.5 / 272.5 / 814 | 12.4 s | 3.6 % |
+| CMA-ES | A · FNO + TTT | 205/300 | 27 / 569.5 / 1450 | 22.6 s | 4.4 % |
+| CMA-ES | B · generic | 174/300 | 65 / 742.5 / 1524 | 22.9 s | 4.1 % |
+| BO (30 materials, 150 evaluations) | A · FNO + TTT | 0/30 | 1 / 1 / – | – | 5.5 % |
+| BO (30 materials, 150 evaluations) | B · generic | 0/30 | 63 / – / – | – | 29.5 % |
+
+From the learned start NM needs fewer evaluations than from the generic start on 74 % of materials (median ratio 0.73); CMA-ES gains little (0.94), since its initial step σ₀ = 0.25 spreads the search far from the start. Stopping at 0.01 % RMSE in $c$ still leaves $D$ off by 3–4 %, while L-BFGS, which runs far below that, recovers it exactly.
+
+The L-BFGS convergence and cost by start are plotted in `results/lbfgs/figures/lbfgs_start_comparison.png` (`python -m analysis.lbfgs_figures`).
+
 ## Optimizer baselines
 
 The baselines fit the 8 Bernstein coefficients of $D(c)$ and $t_+(c)$ in the compact model (`solver/transport_1d.py`) to noise-free synthetic data of one material. Nelder–Mead (NM), CMA-ES and BO each start from the same 5 points and run until the concentration RMSE reaches a target, given as a fraction of mean $c$.
