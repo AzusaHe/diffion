@@ -9,3 +9,5 @@ __pycache__/
 /outputs/
 /checkpoints/
 .pytest_cache/
+diffion.egg-info/
+results/lbfgs/*/starts.npy

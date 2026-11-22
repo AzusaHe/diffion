@@ -68,6 +68,18 @@ python -m inverse.lbfgs --start center --out "results/lbfgs/B_center" --shard 0/
 
 Each material writes `m<k>.json` (fitted and starting $\boldsymbol\theta$, RMSE, one log row per evaluation), and `summary.json` gives median errors, evaluations and wall time, and evaluations to reach an RMSE of 1 %, 0.1 % and 0.01 % of mean $c$.
 
+Results on the 300 test materials (noise-free data, one fit per material, 4 parallel processes on a 4-core cloud machine; one evaluation is about 40 ms):
+
+| Start | D error at start | Evaluations to 1 % / 0.1 % / 0.01 % RMSE (median) | Reached 0.01 % | Evaluations to converge (median) | Wall time per material (median) |
+| --- | --- | --- | --- | --- | --- |
+| B · generic start (θ = 0.5) | 38.9 % | 6 / 18 / 45 | 298/300 | 82.5 | 3.4 s |
+| A · MLP | 9.0 % | 1 / 7 / 40 | 299/300 | 80 | 3.5 s |
+| A · MLP + TTT | 6.5 % | 1 / 4 / 35 | 299/300 | 78 | 3.4 s |
+| A · FNO | 8.5 % | 1 / 7 / 38.5 | 300/300 | 79 | 3.2 s |
+| A · FNO + TTT | 5.5 % | 1 / 3 / 32 | 299/300 | 77 | 3.1 s |
+
+Every fit converges, and the median final RMSE is about 5e-12 in units of $c$, so $D(c)$ and $t_+(c)$ are recovered to about 1e-7 % (the data come from the same solver and grid, so an exact fit exists). A learned start cuts the evaluations to the 0.01 % target from 45 to 32–40, and to the 0.1 % target from 18 to 3–7. One or two materials per start stop early above the 0.01 % target (`to_target` is null in their `m<k>.json`).
+
 ## Optimizer baselines
 
 The baselines fit the 8 Bernstein coefficients of $D(c)$ and $t_+(c)$ in the compact model (`solver/transport_1d.py`) to noise-free synthetic data of one material. Nelder–Mead (NM), CMA-ES and BO each start from the same 5 points and run until the concentration RMSE reaches a target, given as a fraction of mean $c$.
