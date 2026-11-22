@@ -54,6 +54,20 @@ pip install -e ".[dev]"
 pytest
 ```
 
+## Gradient-based fit: differentiable solver + L-BFGS
+
+`inverse/lbfgs.py` fits the 8 coefficients of each of the 300 test materials (the ones the networks are scored on) with the full model in `solver/integrate.py`: cell-centred finite volumes, Crank–Nicolson with a Rannacher start and a Newton solve per step. The gradient comes from reverse mode through the solver, which applies the implicit-function theorem at every step, so one evaluation is one forward and one adjoint solve per current. L-BFGS-B searches the box $\boldsymbol\theta \in [0,1]^8$.
+
+The start sets the input option: `center` ($\boldsymbol\theta = 0.5$, input B, no learned start) or `fno`, `mlp`, `fno_ttt`, `mlp_ttt` (input A, the network's prediction, optionally after TTT). It needs `data/train.npz`; build it first with `python -m solver.dataset`.
+
+```bash
+python -m inverse.lbfgs --start center --out "results/lbfgs/B_center"
+python -m inverse.lbfgs --start fno    --out "results/lbfgs/A_fno"
+python -m inverse.lbfgs --start center --out "results/lbfgs/B_center" --shard 0/4   # one of 4 parallel processes
+```
+
+Each material writes `m<k>.json` (fitted and starting $\boldsymbol\theta$, RMSE, one log row per evaluation), and `summary.json` gives median errors, evaluations and wall time, and evaluations to reach an RMSE of 1 %, 0.1 % and 0.01 % of mean $c$.
+
 ## Optimizer baselines
 
 The baselines fit the 8 Bernstein coefficients of $D(c)$ and $t_+(c)$ in the compact model (`solver/transport_1d.py`) to noise-free synthetic data of one material. Nelder–Mead (NM), CMA-ES and BO each start from the same 5 points and run until the concentration RMSE reaches a target, given as a fraction of mean $c$.
