@@ -80,6 +80,16 @@ Results on the 300 test materials (noise-free data, one fit per material, 4 para
 
 Every fit converges, and the median final RMSE is about 5e-12 in units of $c$, so $D(c)$ and $t_+(c)$ are recovered to about 1e-7 % (the data come from the same solver and grid, so an exact fit exists). A learned start cuts the evaluations to the 0.01 % target from 45 to 32–40, and to the 0.1 % target from 18 to 3–7. One or two materials per start stop early above the 0.01 % target (`to_target` is null in their `m<k>.json`).
 
+## Gradient-free fits on the full model: inputs A and B
+
+`inverse/gradfree.py` runs NM, CMA-ES and BO, with the same settings as the compact-model baselines below, on the same 300 test materials, full model and starts as the L-BFGS fit. Each run stops at an RMSE of 0.01 % of mean $c$, the evaluation budget, or the wall-time cap.
+
+```bash
+python -m inverse.gradfree --start fno_ttt --methods NM CMAES --out "results/gradfree/A_fno_ttt"   # input A
+python -m inverse.gradfree --start center  --methods NM CMAES --out "results/gradfree/B_center"    # input B
+python -m inverse.gradfree --start fno_ttt --methods BO --materials 0:30 --budget 300 --out "results/gradfree/A_fno_ttt"
+```
+
 ## Optimizer baselines
 
 The baselines fit the 8 Bernstein coefficients of $D(c)$ and $t_+(c)$ in the compact model (`solver/transport_1d.py`) to noise-free synthetic data of one material. Nelder–Mead (NM), CMA-ES and BO each start from the same 5 points and run until the concentration RMSE reaches a target, given as a fraction of mean $c$.

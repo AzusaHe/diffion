@@ -47,3 +47,11 @@ def test_fit_from_the_generic_center_start():
     y = _data()
     r = lbfgs.fit(np.full(8, 0.5), y, IOTAS, max_iter=300)
     assert r["rmse"] < 1e-3 * np.nanmean(y)
+
+
+def test_gradient_free_loss_is_zero_at_truth_and_nm_improves():
+    from inverse import gradfree
+    y = _data()
+    assert gradfree.make_loss(y, IOTAS)(THETA) < 1e-12
+    r = gradfree.fit_one("NM", np.clip(THETA + 0.05, 0, 1), y, IOTAS, seed=0, budget=60, max_wall_s=60)
+    assert r["evals"] <= 60 and r["rmse"] < gradfree.make_loss(y, IOTAS)(np.clip(THETA + 0.05, 0, 1))
