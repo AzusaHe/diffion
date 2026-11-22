@@ -1,0 +1,33 @@
+{
+ "n": 30,
+ "start": "fno_ttt",
+ "method": "BO",
+ "median_fit": {
+  "D_relL2_pct": 5.495601994964482,
+  "tplus_rmse": 0.02804150947893147,
+  "group_rmse": 0.014826137577879435,
+  "mse_lnD": 0.0030404487955640993,
+  "mse_tplus": 0.0007867115320920658
+ },
+ "median_rel_rmse": 0.0015276770188585517,
+ "median_evals": 150.0,
+ "median_wall_s": 84.08078084999579,
+ "status": {
+  "used_budget": 30
+ },
+ "target_0.01": {
+  "reached": 30,
+  "median_evals": 1.0,
+  "median_wall_s": 0.02843134998693131
+ },
+ "target_0.001": {
+  "reached": 6,
+  "median_evals": 1.0,
+  "median_wall_s": 0.02733280000393279
+ },
+ "target_0.0001": {
+  "reached": 0,
+  "median_evals": null,
+  "median_wall_s": null
+ }
+}
