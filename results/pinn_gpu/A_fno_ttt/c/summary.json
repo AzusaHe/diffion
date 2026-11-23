@@ -1,0 +1,37 @@
+{
+ "n": 8,
+ "build": "c",
+ "start": "fno_ttt",
+ "median_start": {
+  "D_relL2_pct": 5.686589409875689,
+  "tplus_rmse": 0.03270598948927859,
+  "group_rmse": 0.011471770912220233,
+  "mse_lnD": 0.0034836132659995557,
+  "mse_tplus": 0.001070062937272649
+ },
+ "median_fit": {
+  "D_relL2_pct": 10.636490523092096,
+  "tplus_rmse": 0.030512754182879367,
+  "group_rmse": 0.08071969122730482,
+  "mse_lnD": 0.01030716086935047,
+  "mse_tplus": 0.0009326042080272732
+ },
+ "D_err_improved": 0,
+ "median_rel_rmse": 0.00572464080602279,
+ "median_wall_s": 526.9650951999938,
+ "target_0.01": {
+  "reached": 5,
+  "median_steps": 1300.0,
+  "median_wall_s": 138.9310938999988
+ },
+ "target_0.001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ },
+ "target_0.0001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ }
+}
