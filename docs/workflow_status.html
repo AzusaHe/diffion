@@ -164,7 +164,7 @@ p { margin: 0; }
 
   <section class="status" aria-label="Project status">
     <div class="status-top">
-      <h2>Status · as of Nov 22, 2026</h2>
+      <h2>Status · as of Nov 23, 2026</h2>
       <div class="meter"><span class="bar"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i></i><i></i><i></i><i></i></span><span><b>5 of 9</b> stages done</span></div>
       <div class="legend">
         <span><span class="pill done">✓ DONE</span> results in hand</span>
@@ -184,9 +184,13 @@ p { margin: 0; }
         </ul>
       </div>
       <div>
+        <h3><span class="pill part">PARTIAL</span> Partial</h3>
+        <ul>
+          <li><b>PINN, both builds, inputs A and B, total loss</b> (one Adam, no staging), on 8 materials, in JAX (CPU) and PyTorch (GPU, RTX 4090, about 30–50 s per fit). Neither build recovers θ: from the FNO+TTT start D error goes from 5.7 % to 9–11 %, and from θ = 0.5 it goes from 31.8 % to 28–29 %. The c fit stalls at 0.5–0.8 % RMSE, and Build 2 diverges on the lowest-c materials.</li>
+        </ul>
         <h3><span class="pill todo">○</span> Left</h3>
         <ul>
-          <li><b>PINN, both builds, inputs A and B.</b> Not written yet: <code>pinn/</code> holds only the PDE loss and TTT. They are the last methods missing from the A vs B comparison.</li>
+          <li><b>PINN, both builds, inputs A and B: next round.</b> Total loss is done (see Partial); still to do are staged training and a run on all 300 materials.</li>
           <li><b>Hessian identifiability</b> at the fit, per run condition (Goal 1).</li>
           <li><b>Later rounds:</b> more currents per material, then noise in c.</li>
         </ul>
@@ -275,7 +279,7 @@ p { margin: 0; }
       <!-- INPUT A copy -->
       <rect class="sub" x="432" y="274" width="566" height="292" rx="12"/>
       <text class="lab lab-i" x="448" y="298">INPUT A</text>
-      <text class="lt" x="982" y="298" text-anchor="end">4 of 6 methods run</text>
+      <text class="lt" x="982" y="298" text-anchor="end">6 of 6 methods run</text>
       <rect class="bx" x="448" y="374" width="192" height="64" rx="8"/>
       <text class="t2" x="462" y="402">c, v + learned start</text>
       <text class="s" x="462" y="422">D, t₊ start from MLP/FNO</text>
@@ -284,10 +288,10 @@ p { margin: 0; }
       <text class="lab lab-g" x="694" y="330">GRADIENT-BASED</text>
       <rect class="bx-g" x="694" y="340" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="359.5">PINN build 1 · c_net + v_net</text>
-      <g class="st st-todo" transform="translate(910,346)"><rect width="58" height="18" rx="9"/><text x="29" y="12.6" text-anchor="middle">○ TO DO</text></g>
+      <g class="st st-part" transform="translate(898,346)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
       <rect class="bx-g" x="694" y="374" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="393.5">PINN build 2 · c_net only</text>
-      <g class="st st-todo" transform="translate(910,380)"><rect width="58" height="18" rx="9"/><text x="29" y="12.6" text-anchor="middle">○ TO DO</text></g>
+      <g class="st st-part" transform="translate(898,380)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
       <rect class="bx-g" x="694" y="408" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="427.5">DiffEC-style solver + L-BFGS</text>
       <g class="st st-done" transform="translate(916,414)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
@@ -316,7 +320,7 @@ p { margin: 0; }
       <!-- INPUT B copy -->
       <rect class="sub" x="432" y="580" width="566" height="292" rx="12"/>
       <text class="lab lab-i" x="448" y="604">INPUT B</text>
-      <text class="lt" x="982" y="604" text-anchor="end">4 of 6 methods run</text>
+      <text class="lt" x="982" y="604" text-anchor="end">6 of 6 methods run</text>
       <rect class="bx" x="448" y="680" width="192" height="64" rx="8"/>
       <text class="t2" x="462" y="708">c, v · no learned start</text>
       <text class="s" x="462" y="728">generic start (θ = 0.5 or Sobol)</text>
@@ -325,10 +329,10 @@ p { margin: 0; }
       <text class="lab lab-g" x="694" y="636">GRADIENT-BASED</text>
       <rect class="bx-g" x="694" y="646" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="665.5">PINN build 1 · c_net + v_net</text>
-      <g class="st st-todo" transform="translate(910,652)"><rect width="58" height="18" rx="9"/><text x="29" y="12.6" text-anchor="middle">○ TO DO</text></g>
+      <g class="st st-part" transform="translate(898,652)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
       <rect class="bx-g" x="694" y="680" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="699.5">PINN build 2 · c_net only</text>
-      <g class="st st-todo" transform="translate(910,686)"><rect width="58" height="18" rx="9"/><text x="29" y="12.6" text-anchor="middle">○ TO DO</text></g>
+      <g class="st st-part" transform="translate(898,686)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
       <rect class="bx-g" x="694" y="714" width="282" height="30" rx="6"/>
       <text class="t2" x="706" y="733.5">DiffEC-style solver + L-BFGS</text>
       <g class="st st-done" transform="translate(916,720)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
@@ -413,8 +417,8 @@ p { margin: 0; }
     </div>
     <div class="card">
       <h2 style="color: var(--grad)">Fitting methods</h2>
-      <h3>Two PINN builds <span class="pill todo">○ TO DO</span></h3>
-      <p>c_net + v_net learns v as its own network, so no integration is needed. c_net only gets v by integrating ∂c/∂t over x at each time, which is slower.</p>
+      <h3>Two PINN builds <span class="pill part">PARTIAL</span></h3>
+      <p>c_net + v_net learns v as its own network, so no integration is needed. c_net only gets v by integrating ∂c/∂t over x at each time. Both now run with one total loss and one Adam (no staging); with that setup neither recovers θ, so staged training comes next.</p>
     </div>
   </div>
 </div>

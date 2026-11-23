@@ -26,17 +26,22 @@ diffion/
 │   ├── data.py          splits, electrolyte velocity v(x,t) from c alone
 │   ├── models.py        MLP and FNO (about 65k parameters each)
 │   └── train.py         supervised training on the coefficient loss
-├── pinn/        # physics-informed refinement
-│   ├── material.py      D(c), t+(c) in torch
+├── pinn/        # physics-informed refinement and PINNs
+│   ├── material.py      D(c), t+(c), alpha(c), V(c) in torch
 │   ├── pde_loss.py      PDE loss = squared residual of salt conservation on the data grid
-│   └── ttt.py           test-time training on the PDE loss
+│   ├── ttt.py           test-time training on the PDE loss
+│   ├── jax_pinn.py      per-material PINNs, Builds 1 and 2, total loss + Adam (JAX, CPU)
+│   ├── torch_pinn.py    the same PINNs in PyTorch, many fits batched on the GPU
+│   └── sweep.py         runs the PINN tuning sweep and test runs as parallel processes
 ├── analysis/    # scoring, summaries, figures
 │   ├── benchmark.py     optimizer-baseline summaries and figures
 │   ├── make_figures.py  rebuilds every baseline summary.csv and figure
 │   ├── metrics.py       per-material errors of D(c), t+(c)
 │   ├── stage2_load.py   reads results/stage2
 │   ├── stage2_summary.py every number in the progress report
-│   └── stage2_figures.py figures A1–A6
+│   ├── stage2_figures.py figures A1–A6
+│   ├── lbfgs_figures.py L-BFGS convergence by start
+│   └── pinn_figures.py  PINN results with L-BFGS and NM on the same materials
 ├── results/
 │   ├── baselines/       target_*/ (one JSON + CSV per run, summary.csv), figures/
 │   └── stage2/          saved models, per-material scores, summary, figures/
@@ -104,6 +109,53 @@ Results (run on one PC, 8 processes in parallel; one evaluation is about 31 ms).
 From the learned start NM needs fewer evaluations than from the generic start on 74 % of materials (median ratio 0.73); CMA-ES gains little (0.94), since its initial step σ₀ = 0.25 spreads the search far from the start. Stopping at 0.01 % RMSE in $c$ still leaves $D$ off by 3–4 %, while L-BFGS, which runs far below that, recovers it exactly.
 
 The L-BFGS convergence and cost by start are plotted in `results/lbfgs/figures/lbfgs_start_comparison.png` (`python -m analysis.lbfgs_figures`).
+
+## Physics-informed neural networks (PINNs): total loss, no staging
+
+Two per-material PINNs fit the 8 coefficients together with networks for the fields, on the same test materials and starts as the fits above. Input A starts $\boldsymbol\theta$ at the FNO + TTT prediction and input B at $\boldsymbol\theta = 0.5$. The networks take $(x, s, \iota/5)$ with $s = \sqrt{t/t_{\max}}$; $c = 1 + s\,N_c$ makes $c(x,0) = 1$ exact, and $\boldsymbol\theta = \mathrm{sigmoid}(\boldsymbol\phi)$.
+
+- **Build 1** (`--build cv`): networks for $c$ and $v$ ($v = v_{\text{scale}}\,x\,N_v$, so $v(0) = 0$ exactly). It penalizes conservation $r_c = c_t + J_x$, the volume constraint $r_v = v_x + V q_x$, and $J = \iota$ at both walls.
+- **Build 2** (`--build c`): a network for $c$ only. $J = \iota - \int_0^x c_t\,dx'$ (3-point Gauss on 32 cells), so conservation and $J(0) = \iota$ hold exactly, and $v = (J - q)/c$. It penalizes $r_v$, $q(0) = \iota$ and $J(1) = \iota$.
+
+**Loss** (one total loss, every term on from the first step):
+
+$$
+L = \frac{\overline{(\bar c_{\text{bin}} - y)^2}}{\sigma^2} + w\left(\frac{\overline{r_c^2}}{s_t^2} + \frac{\overline{r_v^2}}{(v_{\text{scale}}\,s_t)^2} + \frac{\overline{r_{\text{wall}}^2}}{\overline{\iota^2}}\right), \qquad w = 100,
+$$
+
+with $\sigma = 10^{-3}\,\bar c$, $s_t$ the RMS of $\partial_t c$ in the data, $v_{\text{scale}} = \max|v|$ of the velocity reconstructed from the data, and the $r_c$ term in Build 1 only. Residual points are redrawn every step: 1024 per current for Build 1 and 32 times per current for Build 2, from the first frame to the last.
+
+**Optimizer:** one Adam over the networks (4 × 64, tanh) and $\boldsymbol\phi$, learning rate $10^{-3}$ with cosine decay to $10^{-5}$ over 5000 steps, and $\boldsymbol\phi$ at 0.1 × that rate. There is no staged training and no L-BFGS polish. A 20-variant sweep on one material (`results/pinn_sweep`) picked this setting: every setting moved $D(c)$ away from the truth from input A, and θ at 0.1 × the rate with $w = 100$ moved it least. With θ held at the truth, the loss was no lower than at the wrong θ.
+
+```bash
+python -m pinn.sweep --grid test --materials 0:8 --steps 5000 --jobs 32 --out results/pinn   # JAX, CPU, one fit per process
+python -m pinn.torch_pinn --build cv --starts fno_ttt,center --materials 0:8 --out results/pinn_gpu   # PyTorch, CUDA, 16 fits per batch
+python -m pinn.torch_pinn --build c  --starts fno_ttt,center --materials 0:8 --out results/pinn_gpu
+python -m analysis.pinn_figures --root results/pinn_gpu   # figure + table with L-BFGS and NM on the same materials
+```
+
+`pinn/jax_pinn.py` and `pinn/torch_pinn.py` are the same method; `tests/test_torch_pinn.py` checks that every loss term and the θ gradient agree to 1e-9 in float64. `pinn/material.py` holds the PyTorch copy of $\alpha(c)$ and $V(c)$.
+
+Results on test materials 0–7 (medians; one PC; GPU = RTX 4090, float64):
+
+| Method | Input | D error at start | D error at end | t+ RMSE at end | D better than start | Data RMSE / mean c | Wall time per fit |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PINN Build 1, JAX (CPU) | A · FNO + TTT | 5.7 % | 9.4 % | 0.032 | 0/8 | 5.1e-3 | 6003 s ¹ |
+| PINN Build 2, JAX (CPU) | A · FNO + TTT | 5.7 % | 9.4 % | 0.028 | 0/8 | 5.7e-3 | 5856 s ¹ |
+| PINN Build 1, JAX (CPU) | B · generic | 31.8 % | 29.0 % | 0.184 | 5/8 | 5.6e-3 | 6005 s ¹ |
+| PINN Build 2, JAX (CPU) | B · generic | 31.8 % | 29.2 % | 0.187 | 5/8 | 7.6e-3 | 5861 s ¹ |
+| PINN Build 1, PyTorch (GPU) | A · FNO + TTT | 5.7 % | 8.7 % | 0.036 | 0/8 | 4.9e-3 | 50 s ² |
+| PINN Build 2, PyTorch (GPU) | A · FNO + TTT | 5.7 % | 10.6 % | 0.031 | 0/8 | 5.7e-3 | 33 s ² |
+| PINN Build 1, PyTorch (GPU) | B · generic | 31.8 % | 29.4 % | 0.184 | 4/8 | 5.1e-3 | 50 s ² |
+| PINN Build 2, PyTorch (GPU) | B · generic | 31.8 % | 28.3 % | 0.186 | 5/8 | 7.6e-3 | 33 s ² |
+| L-BFGS | A · FNO + TTT | 5.7 % | 0.0 % | 0.000 | 8/8 | 2.2e-12 | 3.2 s |
+| L-BFGS | B · generic | 31.8 % | 0.0 % | 0.000 | 8/8 | 4.6e-12 | 3.2 s |
+| NM | A · FNO + TTT | 5.7 % | 3.9 % | 0.017 | 7/8 | 9.9e-5 | 13.4 s |
+| NM | B · generic | 31.8 % | 3.6 % | 0.016 | 8/8 | 1.0e-4 | 12.3 s |
+
+¹ 32 fits in parallel on the CPU, one thread each. ² Batch wall time ÷ 16 fits per batch.
+
+With the total loss, neither build recovers the coefficients. From input A, $D(c)$ ends worse than the start on all 8 materials; from input B it improves slightly on 4–5 of 8. The data misfit stalls at 0.5–0.8 % of mean $c$, far above the 0.01 % that the solver-based fits reach, so the physics residuals are evaluated on a $c$ field whose derivatives are not accurate enough to single out θ. Build 2 also diverges on some of the materials whose concentration falls lowest (minimum $c$ 0.04–0.15: materials 3, 5 and 7), where $v = (J - q)/c$ divides by a small network $c$; the medians hide these fits. The JAX and PyTorch runs agree within the spread of their different random residual points. Figures: `results/pinn/figures/pinn_results.png` (JAX) and `results/pinn_gpu/figures/pinn_results.png` (PyTorch).
 
 ## Optimizer baselines
 
