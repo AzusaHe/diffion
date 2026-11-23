@@ -9,6 +9,13 @@ Same model, networks, losses, weights, optimizer and defaults as pinn/jax_pinn.p
     Build 2 'c' : c network, J by integration of c_t, v = (J - q) / c; penalized volume constraint, walls.
     one Adam over networks and phi (lr 1e-3, cosine decay to 1e-5, phi at phi_lr_mult x), 5000 steps.
 The material (D alpha, t+, V) is pinn/material.py, the torch copy of solver/properties.py.
+Staged training (the workflow doc's schedule; off by default, which gives the total-loss runs above):
+    python -m pinn.torch_pinn --build cv --fit-steps 3000 --warmup-steps 1000 --steps 5000 --lr 1e-4 \
+        --phi-lr-mult 10 --lbfgs-iters 300 --out results/pinn_staged
+  1 fit     Adam on the data loss alone, theta frozen (--fit-steps, --fit-lr)
+  2 warmup  Adam on the total loss, theta frozen (--warmup-steps), then
+    joint   Adam on the total loss, networks and theta (--steps, --lr, theta at --phi-lr-mult x)
+  3 lbfgs   L-BFGS on the total loss over every parameter, fixed residual points (--lbfgs-iters), batched per fit
 Every (start, material) pair is one independent fit; all of them are stacked along a leading batch axis and
 trained together with torch.func.vmap (the loss is the sum of the per-fit losses and Adam is elementwise, so the
 fits do not interact).  Results go to <out>/<A_|B_><start>/<build>/m<k>.json in the format of jax_pinn.py, so
@@ -199,10 +206,34 @@ def _rebuild(tree, it):
     return next(it)
 
 
+def _lbfgs_direction(g, hist, gamma):
+    """Two-loop recursion, batched over fits: g (B, P), hist = [(s, y, rho)] oldest first, gamma (B,)."""
+    q, alphas = g.clone(), []
+    for s, y, rho in reversed(hist):
+        a = rho * (s * q).sum(1)
+        q -= a[:, None] * y
+        alphas.append(a)
+    r = gamma[:, None] * q
+    for (s, y, rho), a in zip(hist, reversed(alphas)):
+        b = rho * (y * r).sum(1)
+        r += s * (a - b)[:, None]
+    return -r
+
+
 def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mult=0.1, w=None, log_every=100,
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
-                dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None):
-    """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train)."""
+                dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
+                fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10):
+    """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
+
+    Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
+      1 'fit'    fit_steps Adam steps on the data loss alone, theta frozen (lr fit_lr, cosine decay to 1 %)
+      2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
+        'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
+                 cosine decay to 1 % over warmup + joint
+      3 'lbfgs'  lbfgs_iters L-BFGS iterations on the total loss over every parameter, with one fixed set of
+                 residual points, batched over the fits (two-loop recursion and Armijo backtracking per fit)
+    """
     B = len(ys)
     LS = Losses(build, dtype, device, n_res, n_times, n_cells, w)
     st = [problem_stats(y, io, res_window) for y, io in zip(ys, iotas)]
@@ -219,9 +250,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         P.append(p)
     stacked = _stack(P)
     params = _rebuild(stacked, iter([x.to(device) for x in _leaves(stacked)]))
-    is_phi = [False] * (len(_leaves(params)) - 1) + [True]
-    m =[torch.zeros_like(x) for x in _leaves(params)]
-    v = [torch.zeros_like(x) for x in _leaves(params)]
+    n_leaves = len(_leaves(params))
+    is_phi = [False] * (n_leaves - 1) + [True]
     b1, b2, eps = 0.9, 0.999, 1e-8
     gen = torch.Generator(device=device).manual_seed(rng_seed)
 
@@ -229,7 +259,12 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         L, parts = vmap(LS.loss)(p, S, x, t)
         return L.sum(), (L, parts)
 
-    step_fn = grad_and_value(total, has_aux=True)
+    def total_data(p, x, t):
+        L = vmap(lambda q, s: LS.data_loss(q, s) / s["sigma"] ** 2)(p, S)
+        return L.sum(), (L, {"data": L})
+
+    step_full = grad_and_value(total, has_aux=True)
+    step_data = grad_and_value(total_data, has_aux=True)
     data_rmse = vmap(lambda p, S: torch.sqrt(LS.data_loss(p, S)))
     mean_c = np.array([s["mean_c"] for s in st])
 
@@ -246,43 +281,132 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     logs = [[] for _ in range(B)]
     hit = [{str(r): [None, None] for r in TARGETS_REL} for _ in range(B)]
     t0 = time.perf_counter()
-    for i in range(steps + 1):
-        if i % log_every == 0 or i == steps:
-            with torch.no_grad():
-                rm = data_rmse(params, S).cpu().numpy()
-                th = torch.sigmoid(params["phi"]).cpu().numpy()
-            wall = time.perf_counter() - t0
-            for b in range(B):
-                logs[b].append(dict(step=i, wall_s=wall, rel_rmse=float(rm[b] / mean_c[b]), theta=th[b].tolist()))
-                for r in TARGETS_REL:
-                    if hit[b][str(r)][0] is None and rm[b] <= r * mean_c[b]:
-                        hit[b][str(r)] = [i, wall]
-            if progress:
-                progress(i, wall, rm / mean_c)
-            if wall > max_wall_s:
-                break
-        if i == steps:
-            break
-        x, t = draw()
-        g, (_, (L, parts)) = step_fn(params, x, t)
-        sched = lr * (0.01 + 0.99 * 0.5 * (1 + math.cos(math.pi * min(i, steps) / steps)))
+    ctr = dict(step=0, evals=0)
+    stage_wall = {}
+
+    def record(stage, p):
         with torch.no_grad():
-            leaves, gl = _leaves(params), _leaves(g)
-            c1, c2 = 1 - b1 ** (i + 1), 1 - b2 ** (i + 1)
-            new = []
-            for j, (pj, gj) in enumerate(zip(leaves, gl)):
-                m[j].mul_(b1).add_(gj, alpha=1 - b1)
-                v[j].mul_(b2).addcmul_(gj, gj, value=1 - b2)
-                step_lr = sched * (phi_lr_mult if is_phi[j] else 1.0)
-                new.append(pj - step_lr * (m[j] / c1) / (torch.sqrt(v[j] / c2) + eps))
-            params = _rebuild(params, iter(new))
-        if i % log_every == 0:
-            Lc, pc = L.detach().cpu().numpy(), {k: vv.detach().cpu().numpy() for k, vv in parts.items()}
-            for b in range(B):
-                logs[b][-1].update(loss=float(Lc[b]), **{f"L_{k}": float(vv[b]) for k, vv in pc.items()})
+            rm = data_rmse(p, S).cpu().numpy()
+            th = torch.sigmoid(p["phi"]).cpu().numpy()
+        wall = time.perf_counter() - t0
+        for b in range(B):
+            logs[b].append(dict(step=ctr["step"], evals=ctr["evals"], stage=stage, wall_s=wall,
+                                rel_rmse=float(rm[b] / mean_c[b]), theta=th[b].tolist()))
+            for r in TARGETS_REL:
+                if hit[b][str(r)][0] is None and rm[b] <= r * mean_c[b]:
+                    hit[b][str(r)] = [ctr["step"], wall]
+        if progress:
+            progress(ctr["step"], wall, rm / mean_c, stage)
+        return wall
+
+    def attach(L, parts):
+        Lc, pc = L.detach().cpu().numpy(), {k: vv.detach().cpu().numpy() for k, vv in parts.items()}
+        for b in range(B):
+            logs[b][-1].update(loss=float(Lc[b]), **{f"L_{k}": float(vv[b]) for k, vv in pc.items()})
+
+    def adam(params, n, lr0, mult, step_fn, stage, decay_n=None, offset=0):
+        """n Adam steps (fresh moments); lr cosine-decays from lr0 to lr0/100 over decay_n steps, phi at mult x."""
+        decay_n = decay_n or n
+        m = [torch.zeros_like(x) for x in _leaves(params)]
+        v = [torch.zeros_like(x) for x in _leaves(params)]
+        for i in range(n):
+            logged = ctr["step"] % log_every == 0
+            if logged and record(stage, params) > max_wall_s:
+                return params, True
+            x, t = draw()
+            g, (_, (L, parts)) = step_fn(params, x, t)
+            ctr["evals"] += 1
+            k = offset + i
+            sched = lr0 * (0.01 + 0.99 * 0.5 * (1 + math.cos(math.pi * min(k, decay_n) / decay_n)))
+            with torch.no_grad():
+                new = []
+                for j, (pj, gj) in enumerate(zip(_leaves(params), _leaves(g))):
+                    m[j].mul_(b1).add_(gj, alpha=1 - b1)
+                    v[j].mul_(b2).addcmul_(gj, gj, value=1 - b2)
+                    step_lr = sched * (mult if is_phi[j] else 1.0)
+                    new.append(pj - step_lr * (m[j] / (1 - b1 ** (i + 1))) / (torch.sqrt(v[j] / (1 - b2 ** (i + 1))) + eps))
+                params = _rebuild(params, iter(new))
+            if logged:
+                attach(L, parts)
+            ctr["step"] += 1
+        return params, False
+
+    def lbfgs(params, n):
+        shapes = [x.shape for x in _leaves(params)]
+        sizes_ = [int(np.prod(s[1:])) for s in shapes]
+        flat = lambda tree: torch.cat([z.reshape(B, -1) for z in _leaves(tree)], 1)  # noqa: E731
+        unflat = lambda X: _rebuild(params, iter([z.reshape(s) for z, s in zip(torch.split(X, sizes_, 1), shapes)]))  # noqa: E731
+        x_fix, t_fix = draw()
+
+        def fg(X):
+            g, (_, (L, parts)) = step_full(unflat(X), x_fix, t_fix)
+            ctr["evals"] += 1
+            L = L.detach()
+            return torch.where(torch.isfinite(L), L, torch.full_like(L, float("inf"))), flat(g).detach(), parts
+
+        X = flat(params).detach()
+        f, g, parts = fg(X)
+        hist, gamma = [], 1.0 / g.norm(dim=1).clamp_min(1e-12)
+        for it in range(n):
+            if it % lbfgs_log_every == 0:
+                params = unflat(X)
+                if record("lbfgs", params) > max_wall_s:
+                    return params, True
+                attach(f, parts)
+            d = _lbfgs_direction(g, hist, gamma)
+            gd = (g * d).sum(1)
+            bad = ~(gd < 0)                                        # not a descent direction: restart that fit
+            if bad.any():
+                d = torch.where(bad[:, None], -g / g.norm(dim=1, keepdim=True).clamp_min(1e-12), d)
+                gd = (g * d).sum(1)
+                hist = [(s, y, torch.where(bad, torch.zeros_like(r), r)) for s, y, r in hist]
+            alpha, done = torch.ones(B, dtype=dtype, device=device), torch.zeros(B, dtype=torch.bool, device=device)
+            Xn, fn, gn = X.clone(), f.clone(), g.clone()
+            for _ in range(20):
+                ft, gt, pt = fg(X + alpha[:, None] * d)
+                ok = ~done & (ft <= f + 1e-4 * alpha * gd)
+                Xn[ok], fn[ok], gn[ok] = (X + alpha[:, None] * d)[ok], ft[ok], gt[ok]
+                if ok.any():
+                    parts = {k: torch.where(ok, v, parts[k]) for k, v in pt.items()}
+                done |= ok
+                if done.all():
+                    break
+                alpha = torch.where(done, alpha, 0.5 * alpha)
+            s, yv = Xn - X, gn - g
+            sy = (s * yv).sum(1)
+            valid = done & (sy > 1e-12 * s.norm(dim=1) * yv.norm(dim=1))
+            hist.append((s, yv, torch.where(valid, 1.0 / torch.where(valid, sy, torch.ones_like(sy)), torch.zeros_like(sy))))
+            hist = hist[-lbfgs_memory:]
+            gamma = torch.where(valid, sy / (yv * yv).sum(1).clamp_min(1e-300), gamma)
+            failed = ~done                                         # no decrease even at a tiny step: restart
+            if failed.any():
+                hist = [(s_, y_, torch.where(failed, torch.zeros_like(r_), r_)) for s_, y_, r_ in hist]
+                gamma = torch.where(failed, 1.0 / gn.norm(dim=1).clamp_min(1e-12), gamma)
+            X, f, g = Xn, fn, gn
+            ctr["step"] += 1
+        return unflat(X), False
+
+    stopped = False
+    if fit_steps:
+        params, stopped = adam(params, fit_steps, fit_lr, 0.0, step_data, "fit")
+        stage_wall["fit"] = time.perf_counter() - t0
+    if warmup_steps and not stopped:
+        params, stopped = adam(params, warmup_steps, lr, 0.0, step_full, "warmup", decay_n=warmup_steps + steps)
+        stage_wall["warmup"] = time.perf_counter() - t0
+    if steps and not stopped:
+        params, stopped = adam(params, steps, lr, phi_lr_mult, step_full, "joint",
+                               decay_n=warmup_steps + steps, offset=warmup_steps)
+        stage_wall["joint"] = time.perf_counter() - t0
+    if lbfgs_iters and not stopped:
+        params, stopped = lbfgs(params, lbfgs_iters)
+        stage_wall["lbfgs"] = time.perf_counter() - t0
+    record("end", params)
     w_used = LS.w
+    sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
+                 phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
     return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
-                 wall_s=logs[b][-1]["wall_s"], to_target=hit[b], weights=w_used, lr=lr, phi_lr_mult=phi_lr_mult,
+                 evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], to_target=hit[b], weights=w_used, lr=lr,
+                 phi_lr_mult=phi_lr_mult, schedule=sched, stage_wall_s=stage_wall, stopped_by_wall=stopped,
                  v_scale=st[b]["vscale"], s_t=st[b]["st"], sigma=st[b]["sigma"], s_lo=st[b]["s_lo"],
                  device=str(device), dtype=str(dtype).replace("torch.", ""), batch=B, log=logs[b]) for b in range(B)]
 
@@ -295,8 +419,8 @@ def main():
     p.add_argument("--starts", default="fno_ttt,center", help="comma list: fno_ttt | fno | mlp | mlp_ttt (A), center (B)")
     p.add_argument("--materials", default="0:8")
     p.add_argument("--out", type=Path, default=Path("results/pinn_gpu"))
-    p.add_argument("--steps", type=int, default=5000)
-    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--steps", type=int, default=5000, help="joint Adam steps (networks and theta)")
+    p.add_argument("--lr", type=float, default=1e-3, help="network learning rate of the warmup and joint stages")
     p.add_argument("--w-pde", type=float, default=100.0)
     p.add_argument("--w-vol", type=float, default=100.0)
     p.add_argument("--w-bc", type=float, default=100.0)
@@ -305,6 +429,10 @@ def main():
     p.add_argument("--max-wall-s", type=float, default=4 * 3600.0)
     p.add_argument("--dtype", choices=["float64", "float32"], default="float64")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--fit-steps", type=int, default=0, help="stage 1: Adam steps on the data alone, theta frozen")
+    p.add_argument("--fit-lr", type=float, default=1e-3)
+    p.add_argument("--warmup-steps", type=int, default=0, help="stage 2a: total-loss Adam steps with theta frozen")
+    p.add_argument("--lbfgs-iters", type=int, default=0, help="stage 3: L-BFGS iterations on the total loss")
     a = p.parse_args()
     T = load_test()
     lo, hi = map(int, a.materials.split(":"))
@@ -317,13 +445,14 @@ def main():
                  if not (d / f"m{k:03d}.json").exists()]
     print(f"{a.build}: {len(jobs)} fits on {a.device} ({a.dtype})", flush=True)
     if jobs:
-        def progress(i, wall, rel):
-            print(f"step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
+        def progress(i, wall, rel, stage):
+            print(f"{stage:6s} step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
         R = train_batch([T["y"][k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
                         [th0 for *_, th0 in jobs], a.build, [k for _, _, k, _ in jobs], steps=a.steps, lr=a.lr,
                         phi_lr_mult=a.phi_lr_mult, w=dict(pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
-                        dtype=getattr(torch, a.dtype), progress=progress, log_every=100)
+                        dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
+                        fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters)
         for (d, st, k, th0), r in zip(jobs, R):
             r.update(k=k, index=int(T["index"][k]), start=st, theta0=th0.tolist())
             (d / f"m{k:03d}.json").write_text(json.dumps(r))

@@ -76,3 +76,23 @@ def test_short_batched_training_runs_and_stays_finite():
                           log_every=1, device=DEV[-1], n_res=64, n_times=4)
         assert len(R) == 2 and all(np.isfinite(r["rel_rmse"]) and np.all(np.isfinite(r["theta"])) for r in R)
         assert R[0]["theta"] != [0.5] * 8
+
+
+@pytest.mark.parametrize("build", ["cv", "c"])
+def test_staged_training_freezes_theta_then_lbfgs_lowers_the_loss(build):
+    from inverse.lbfgs import load_test
+    T = load_test(3)
+    th0 = np.full(8, 0.4)
+    R = P.train_batch(list(T["y"][:2]), list(T["iotas"][:2]), [th0] * 2, build, [0, 1], steps=4, lr=1e-4,
+                      phi_lr_mult=10.0, log_every=1, device=DEV[-1], n_res=64, n_times=4, fit_steps=40,
+                      warmup_steps=3, lbfgs_iters=6, lbfgs_log_every=1)
+    for r in R:
+        log = r["log"]
+        frozen = [l for l in log if l["stage"] in ("fit", "warmup")]
+        assert all(np.allclose(l["theta"], th0) for l in frozen)          # theta frozen in stages 1 and 2a
+        fit = [l["rel_rmse"] for l in log if l["stage"] == "fit"]
+        assert fit[-1] < 0.5 * fit[0]                                      # stage 1 fits the data
+        assert not np.allclose(r["theta"], th0)                            # theta moves in the joint stage
+        lb = [l["loss"] for l in log if l["stage"] == "lbfgs"]
+        assert len(lb) == 6 and all(np.isfinite(lb)) and all(b <= a * (1 + 1e-12) for a, b in zip(lb, lb[1:]))
+        assert r["schedule"]["fit_steps"] == 40 and set(r["stage_wall_s"]) == {"fit", "warmup", "joint", "lbfgs"}
