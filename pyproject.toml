@@ -16,6 +16,7 @@ dependencies = [
     "torch",
     "cma",
     "scikit-optimize",
+    "optax",
 ]
 
 [project.optional-dependencies]
