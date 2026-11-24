@@ -25,6 +25,8 @@ small data weight:
             is fitted too, to v reconstructed from the measured c (surrogate.data.velocity_from_c) at the cell
             centres; the stage-1 networks are cached per material in --prefit-cache and reused by later runs.
   2 joint   total loss = w_data (L_data + L_vdata) + w_pde L_pde + w_vol L_vol + w_bc L_bc, theta free.
+            --freeze c,v holds the stage-1 networks fixed, so stage 2 fits only theta (D and t+) to the physics
+            of the data-fitted fields; --freeze c holds only the c network.
 Every (start, material) pair is one independent fit; all of them are stacked along a leading batch axis and
 trained together with torch.func.vmap (the loss is the sum of the per-fit losses and Adam is elementwise, so the
 fits do not interact).  Results go to <out>/<A_|B_><start>/<build>/m<k>.json in the format of jax_pinn.py, so
@@ -254,7 +256,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
-                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None):
+                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=()):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -262,6 +264,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         'fitlbfgs' then fit_lbfgs_iters L-BFGS iterations on the same data loss.  fit_v (Build 1) adds the v
                  misfit to v reconstructed from c.  With prefit_cache, the stage-1 networks of each seed are
                  saved there and, when every seed is cached, loaded instead of refitted (theta set to theta0).
+    freeze: networks ("c", "v") held fixed after stage 1; freeze=("c", "v") leaves only theta to the physics.
       2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
         'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
                  cosine decay to 1 % over warmup + joint
@@ -288,6 +291,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     params = _rebuild(stacked, iter([x.to(device) for x in _leaves(stacked)]))
     n_leaves = len(_leaves(params))
     is_phi = [False] * (n_leaves - 1) + [True]
+    is_frozen = [z for k in params for z in [k in freeze] * len(_leaves(params[k]))]
     b1, b2, eps = 0.9, 0.999, 1e-8
     gen = torch.Generator(device=device).manual_seed(rng_seed)
 
@@ -342,7 +346,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         for b in range(B):
             logs[b][-1].update(loss=float(Lc[b]), **{f"L_{k}": float(vv[b]) for k, vv in pc.items()})
 
-    def adam(params, n, lr0, mult, step_fn, stage, decay_n=None, offset=0):
+    def adam(params, n, lr0, mult, step_fn, stage, decay_n=None, offset=0, frozen=None):
         """n Adam steps (fresh moments); lr cosine-decays from lr0 to lr0/100 over decay_n steps, phi at mult x."""
         decay_n = decay_n or n
         m = [torch.zeros_like(x) for x in _leaves(params)]
@@ -361,7 +365,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 for j, (pj, gj) in enumerate(zip(_leaves(params), _leaves(g))):
                     m[j].mul_(b1).add_(gj, alpha=1 - b1)
                     v[j].mul_(b2).addcmul_(gj, gj, value=1 - b2)
-                    step_lr = sched * (mult if is_phi[j] else 1.0)
+                    step_lr = sched * (mult if is_phi[j] else 0.0 if frozen and frozen[j] else 1.0)
                     new.append(pj - step_lr * (m[j] / (1 - b1 ** (i + 1))) / (torch.sqrt(v[j] / (1 - b2 ** (i + 1))) + eps))
                 params = _rebuild(params, iter(new))
             if logged:
@@ -369,18 +373,20 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             ctr["step"] += 1
         return params, False
 
-    def lbfgs(params, n, step_fn=step_full, stage="lbfgs"):
+    def lbfgs(params, n, step_fn=step_full, stage="lbfgs", frozen=None):
         shapes = [x.shape for x in _leaves(params)]
         sizes_ = [int(np.prod(s[1:])) for s in shapes]
         flat = lambda tree: torch.cat([z.reshape(B, -1) for z in _leaves(tree)], 1)  # noqa: E731
         unflat = lambda X: _rebuild(params, iter([z.reshape(s) for z, s in zip(torch.split(X, sizes_, 1), shapes)]))  # noqa: E731
         x_fix, t_fix = draw()
+        keep = torch.cat([torch.full((B, n_), 0.0 if frozen and frozen[j] else 1.0, dtype=dtype, device=device)
+                          for j, n_ in enumerate(sizes_)], 1)          # 0 on frozen parameters
 
         def fg(X):
             g, (_, (L, parts)) = step_fn(unflat(X), x_fix, t_fix)
             ctr["evals"] += 1
             L = L.detach()
-            return torch.where(torch.isfinite(L), L, torch.full_like(L, float("inf"))), flat(g).detach(), parts
+            return torch.where(torch.isfinite(L), L, torch.full_like(L, float("inf"))), flat(g).detach() * keep, parts
 
         X = flat(params).detach()
         f, g, parts = fg(X)
@@ -450,19 +456,20 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         fit_end = dict(rel_rmse=(data_rmse(params, S).cpu().numpy() / mean_c).tolist(),
                        v_rel_rmse=(v_rmse(params, S).cpu().numpy().tolist() if v_rmse else [None] * B))
     if warmup_steps and not stopped:
-        params, stopped = adam(params, warmup_steps, lr, 0.0, step_full, "warmup", decay_n=warmup_steps + steps)
+        params, stopped = adam(params, warmup_steps, lr, 0.0, step_full, "warmup", decay_n=warmup_steps + steps,
+                               frozen=is_frozen)
         stage_wall["warmup"] = time.perf_counter() - t0
     if steps and not stopped:
         params, stopped = adam(params, steps, lr, phi_lr_mult, step_full, "joint",
-                               decay_n=warmup_steps + steps, offset=warmup_steps)
+                               decay_n=warmup_steps + steps, offset=warmup_steps, frozen=is_frozen)
         stage_wall["joint"] = time.perf_counter() - t0
     if lbfgs_iters and not stopped:
-        params, stopped = lbfgs(params, lbfgs_iters)
+        params, stopped = lbfgs(params, lbfgs_iters, frozen=is_frozen)
         stage_wall["lbfgs"] = time.perf_counter() - t0
     record("end", params)
     w_used = LS.w
     sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, fit_lbfgs_iters=fit_lbfgs_iters, fit_v=LS.use_vdata,
-                 warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
+                 freeze=list(freeze), warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
                  phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
     return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
                  evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], v_rel_rmse=logs[b][-1]["v_rel_rmse"],
@@ -498,6 +505,7 @@ def main():
     p.add_argument("--fit-v", action="store_true", help="Build 1: fit v to v reconstructed from c in stage 1 (and keep it as data)")
     p.add_argument("--fit-lbfgs-iters", type=int, default=0, help="stage 1: L-BFGS iterations on the data loss after the Adam fit")
     p.add_argument("--prefit-cache", type=Path, default=None, help="folder caching the stage-1 networks per material")
+    p.add_argument("--freeze", default="", help="comma list of networks (c, v) held fixed after stage 1, e.g. c,v")
     a = p.parse_args()
     T = load_test()
     lo, hi = map(int, a.materials.split(":"))
@@ -517,6 +525,7 @@ def main():
                         phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
                         fit_v=a.fit_v, fit_lbfgs_iters=a.fit_lbfgs_iters, prefit_cache=a.prefit_cache,
+                        freeze=tuple(x for x in a.freeze.split(",") if x),
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
                         fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters)
         for (d, st, k, th0), r in zip(jobs, R):
