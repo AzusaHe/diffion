@@ -71,9 +71,31 @@ def _sqrt_time(t, tmax):
     return torch.where(pos, torch.sqrt(torch.where(pos, t, torch.ones_like(t)) / tmax), torch.zeros_like(t))
 
 
-def c_point(p, x, t, io, tmax):
+def c_point(p, x, t, io, tmax, vs=None):
+    """c = 1 + s N(x, s, i) (initial condition c = 1 built in).  With vs (the v scale) given, the wall fluxes are
+    built in too: c = B + phi0(x) (a0 - B_x(0)) + phi1(x) (a1 - B_x(1)), where B is the plain network,
+    phi0, phi1 are boundary-layer bumps (width s) with phi0'(0) = 1, phi1'(1) = 1 and zero value at both walls
+    and zero slope at the far wall, and a0, a1 are the wall slopes that make J(0) = J(1) = i for the current
+    theta and v: J(0) = q(0) (v(0) = 0) and J(1) = q(1) + c(1) v(1)."""
     s = _sqrt_time(t, tmax)
-    return 1.0 + s * mlp(p["c"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+
+    def base(xx):
+        return 1.0 + s * mlp(p["c"], torch.stack([2 * xx - 1, 2 * s - 1, io / 5.0]))
+    if vs is None:
+        return base(x)
+    th = torch.sigmoid(p["phi"])
+    zero, one = torch.zeros_like(x), torch.ones_like(x)
+    b0x, b0 = grad_and_value(base)(zero)
+    b1x, b1 = grad_and_value(base)(one)
+    dal0, tp0, _ = material(b0, th)
+    dal1, tp1, _ = material(b1, th)
+    v1 = v_point(p, one, t, io, tmax, vs)
+    a0 = -(1 - tp0) * io / dal0
+    a1 = (b1 * v1 - (1 - tp1) * io) / dal1
+    ell = s + 1e-3
+    phi0 = x * (1 - x) ** 2 * torch.exp(-x / ell)
+    phi1 = (x - 1) * x ** 2 * torch.exp(-(1 - x) / ell)
+    return base(x) + phi0 * (a0 - b0x) + phi1 * (a1 - b1x)
 
 
 def v_point(p, x, t, io, tmax, vscale):
@@ -81,16 +103,16 @@ def v_point(p, x, t, io, tmax, vscale):
     return vscale * x * mlp(p["v"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
 
 
-def q_point(p, th, x, t, io, tmax):
-    cx, c = grad_and_value(c_point, argnums=1)(p, x, t, io, tmax)
+def q_point(p, th, x, t, io, tmax, vs=None):
+    cx, c = grad_and_value(c_point, argnums=1)(p, x, t, io, tmax, vs)
     dal, tp, _ = material(c, th)
     return -dal * cx + tp * io
 
 
-def fields(p, th, x, t, io, tmax):
-    """c, c_x, c_t, q, q_x, V at one point."""
-    (cx, ct), c = grad_and_value(c_point, argnums=(1, 2))(p, x, t, io, tmax)
-    qx, q = grad_and_value(q_point, argnums=2)(p, th, x, t, io, tmax)
+def fields(p, th, x, t, io, tmax, vs=None):
+    """c, c_x, c_t, q, q_x, V at one point (vs given: hard wall-flux c, see c_point)."""
+    (cx, ct), c = grad_and_value(c_point, argnums=(1, 2))(p, x, t, io, tmax, vs)
+    qx, q = grad_and_value(q_point, argnums=2)(p, th, x, t, io, tmax, vs)
     V = material(c, th)[2]
     return c, cx, ct, q, qx, V
 
@@ -131,21 +153,26 @@ def problem_stats(y, iotas, res_window="observed"):
 class Losses:
     """Per-fit loss functions (one material, unbatched) with the shared constants bound in."""
 
-    def __init__(self, build, dtype, device, n_res=1024, n_times=32, n_cells=32, w=None):
+    def __init__(self, build, dtype, device, n_res=1024, n_times=32, n_cells=32, w=None, residual="strong",
+                 hard_bc=False, n_fv_times=32):
         self.build, self.n_res, self.n_times, self.n_cells = build, n_res, n_times, n_cells
-        self.w = dict(data=1.0, pde=100.0, vol=100.0, bc=100.0) | (w or {})
+        self.w = dict(data=1.0, pde=100.0, vol=100.0, bc=100.0, prior=0.0) | (w or {})
+        self.residual, self.hard_bc, self.n_fv_times = residual, hard_bc, n_fv_times
+        if build == "c" and (hard_bc or residual != "strong"):
+            raise ValueError("--hard-bc and --residual fv are for Build 1 (cv) only")
         self.use_vdata = False                                  # set by train_batch (fit_v, Build 1 only)
         self.XC = torch.tensor((np.arange(N_BINS) + 0.5) / N_BINS, dtype=dtype, device=device)
         self.XB, self.WB = bin_points(dtype, device)
         self.edges, self.xq, self.wq = cell_nodes(n_cells, dtype, device)
         self.t_obs = torch.tensor(TAU, dtype=dtype, device=device)
 
-    def bin_average(self, p, t, io, tmax):
-        c = vmap(lambda x: c_point(p, x, t, io, tmax))(self.XB)
+    def bin_average(self, p, t, io, tmax, vs=None):
+        c = vmap(lambda x: c_point(p, x, t, io, tmax, vs))(self.XB)
         return (c * self.WB).reshape(N_BINS, 4).sum(1)
 
     def data_loss(self, p, S):
-        pred = vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"]))(self.t_obs))(S["iotas"])
+        vs = S["vscale"] if self.hard_bc else None
+        pred = vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(self.t_obs))(S["iotas"])
         r = torch.where(S["mask"][None, :, None], pred - S["y"], torch.zeros_like(pred))
         return (r ** 2).sum() / (S["mask"].sum() * 3 * N_BINS)
 
@@ -166,12 +193,16 @@ class Losses:
     def loss_cv(self, p, S, x, t):
         th = torch.sigmoid(p["phi"])
         tm, vs = S["tmax"], S["vscale"]
+        hb = vs if self.hard_bc else None
 
         def J_point(x, t, io):
-            return q_point(p, th, x, t, io, tm) + c_point(p, x, t, io, tm) * v_point(p, x, t, io, tm, vs)
+            return q_point(p, th, x, t, io, tm, hb) + c_point(p, x, t, io, tm, hb) * v_point(p, x, t, io, tm, vs)
+
+        if self.residual == "fv":
+            return self.loss_cv_fv(p, S, t, th, J_point, hb)
 
         def res(x, t, io):
-            c, cx, ct, q, qx, V = fields(p, th, x, t, io, tm)
+            c, cx, ct, q, qx, V = fields(p, th, x, t, io, tm, hb)
             Jx = grad(J_point, argnums=0)(x, t, io)
             vx = grad(v_point, argnums=1)(p, x, t, io, tm, vs)
             return ct + Jx, vx + V * qx
@@ -180,6 +211,43 @@ class Losses:
         tb = t[:, :256]
         wall = vmap(lambda ts, io: vmap(lambda b: torch.stack([J_point(torch.zeros_like(b), b, io) - io,
                                                                J_point(torch.ones_like(b), b, io) - io]))(ts))(tb, S["iotas"])
+        L = dict(data=self.data_loss(p, S) / S["sigma"] ** 2, pde=(rc ** 2).mean() / S["st"] ** 2,
+                 vol=(rv ** 2).mean() / (vs * S["st"]) ** 2, bc=(wall ** 2).mean() / (S["iotas"] ** 2).mean())
+        w = self.w
+        data = L["data"]
+        if self.use_vdata:
+            L["vdata"] = self.vdata_loss(p, S) / (1e-3 * vs) ** 2
+            data = data + L["vdata"]
+        return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
+
+    def loss_cv_fv(self, p, S, t, th, J_point, hb):
+        """Build 1 with the conservation laws in integral (finite-volume) form on n_cells cells, so only first
+        derivatives of c enter:  int_cell c_t dx + J(x_{j+1}) - J(x_j) = 0  and, integrating v_x = -V q_x by
+        parts,  v_{j+1} - v_j + [V q]_j^{j+1} - int_cell V'(c) c_x q dx = 0.  Each residual is divided by the
+        cell width, so it has the scale of the strong-form residual and the same normalization."""
+        tm, vs = S["tmax"], S["vscale"]
+        h = 1.0 / self.n_cells
+
+        def V_of(c):
+            return material(c, th)[2]
+
+        def line(t, io):
+            ct = vmap(lambda x: grad(c_point, argnums=2)(p, x, t, io, tm, hb))(self.xq)
+            cx, c = vmap(lambda x: grad_and_value(c_point, argnums=1)(p, x, t, io, tm, hb))(self.xq)
+            q = vmap(lambda x: q_point(p, th, x, t, io, tm, hb))(self.xq)
+            Vc = vmap(grad(V_of))(c)
+            cell = lambda f: (f * self.wq).reshape(self.n_cells, 3).sum(1)  # noqa: E731
+            J = vmap(lambda x: J_point(x, t, io))(self.edges)
+            ce = vmap(lambda x: c_point(p, x, t, io, tm, hb))(self.edges)
+            qe = vmap(lambda x: q_point(p, th, x, t, io, tm, hb))(self.edges)
+            ve = vmap(lambda x: v_point(p, x, t, io, tm, vs))(self.edges)
+            Vq = V_of(ce) * qe
+            rc = (cell(ct) + J[1:] - J[:-1]) / h
+            rv = (ve[1:] - ve[:-1] + Vq[1:] - Vq[:-1] - cell(Vc * cx * q)) / h
+            return rc, rv, torch.stack([J[0] - io, J[-1] - io])
+
+        ts = t[:, :self.n_fv_times]
+        rc, rv, wall = vmap(lambda tt, io: vmap(lambda b: line(b, io))(tt))(ts, S["iotas"])
         L = dict(data=self.data_loss(p, S) / S["sigma"] ** 2, pde=(rc ** 2).mean() / S["st"] ** 2,
                  vol=(rv ** 2).mean() / (vs * S["st"]) ** 2, bc=(wall ** 2).mean() / (S["iotas"] ** 2).mean())
         w = self.w
@@ -210,7 +278,11 @@ class Losses:
         return w["data"] * L["data"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def loss(self, p, S, x, t):
-        return (self.loss_cv if self.build == "cv" else self.loss_c)(p, S, x, t)
+        tot, L = (self.loss_cv if self.build == "cv" else self.loss_c)(p, S, x, t)
+        if self.w["prior"] > 0:                       # pull toward the starting theta (e.g. the FNO estimate)
+            L["prior"] = ((p["phi"] - S["phi0"]) ** 2).mean()
+            tot = tot + self.w["prior"] * L["prior"]
+        return tot, L
 
 
 # ------------------------------------------------------------------------------------------------ training
@@ -256,7 +328,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
-                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=()):
+                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -265,6 +337,10 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                  misfit to v reconstructed from c.  With prefit_cache, the stage-1 networks of each seed are
                  saved there and, when every seed is cached, loaded instead of refitted (theta set to theta0).
     freeze: networks ("c", "v") held fixed after stage 1; freeze=("c", "v") leaves only theta to the physics.
+    residual: "strong" (pointwise PDE residuals) or "fv" (integral form on cells, Build 1; see loss_cv_fv).
+    hard_bc: wall fluxes built into the c network (Build 1; see c_point).  c then depends on theta, so stage 1
+             fits from each start separately (no stage-1 cache) and theta stays frozen there.
+    w["prior"] > 0 adds w_prior * mean((phi - phi0)^2), phi0 = logit of the start.
       2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
         'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
                  cosine decay to 1 % over warmup + joint
@@ -272,7 +348,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                  residual points, batched over the fits (two-loop recursion and Armijo backtracking per fit)
     """
     B = len(ys)
-    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w)
+    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc)
     LS.use_vdata = bool(fit_v and build == "cv")
     st = [problem_stats(y, io, res_window) for y, io in zip(ys, iotas)]
     S = {k: torch.tensor(np.stack([s[k] for s in st]), device=device, dtype=torch.bool if k == "mask" else dtype)
@@ -289,6 +365,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         P.append(p)
     stacked = _stack(P)
     params = _rebuild(stacked, iter([x.to(device) for x in _leaves(stacked)]))
+    S["phi0"] = params["phi"].detach().clone()
     n_leaves = len(_leaves(params))
     is_phi = [False] * (n_leaves - 1) + [True]
     is_frozen = [z for k in params for z in [k in freeze] * len(_leaves(params[k]))]
@@ -431,7 +508,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         return unflat(X), False
 
     stopped = False
-    cache = Path(prefit_cache) if prefit_cache else None
+    cache = Path(prefit_cache) if prefit_cache and not hard_bc else None
     tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
     files = [cache / f"{tag}_s{int(sd)}.pt" for sd in seeds] if cache else []
     if cache and all(f.exists() for f in files):
@@ -445,7 +522,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             params, stopped = adam(params, fit_steps, fit_lr, 0.0, step_data, "fit")
             stage_wall["fit"] = time.perf_counter() - t0
         if fit_lbfgs_iters and not stopped:
-            params, stopped = lbfgs(params, fit_lbfgs_iters, step_data, "fitlbfgs")
+            params, stopped = lbfgs(params, fit_lbfgs_iters, step_data, "fitlbfgs", frozen=is_phi)
             stage_wall["fitlbfgs"] = time.perf_counter() - t0
         if cache and not stopped:
             cache.mkdir(parents=True, exist_ok=True)
@@ -469,7 +546,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     record("end", params)
     w_used = LS.w
     sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, fit_lbfgs_iters=fit_lbfgs_iters, fit_v=LS.use_vdata,
-                 freeze=list(freeze), warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
+                 freeze=list(freeze), residual=residual, hard_bc=hard_bc, warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
                  phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
     return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
                  evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], v_rel_rmse=logs[b][-1]["v_rel_rmse"],
@@ -506,6 +583,9 @@ def main():
     p.add_argument("--fit-lbfgs-iters", type=int, default=0, help="stage 1: L-BFGS iterations on the data loss after the Adam fit")
     p.add_argument("--prefit-cache", type=Path, default=None, help="folder caching the stage-1 networks per material")
     p.add_argument("--freeze", default="", help="comma list of networks (c, v) held fixed after stage 1, e.g. c,v")
+    p.add_argument("--residual", choices=["strong", "fv"], default="strong", help="pointwise or integral-form physics")
+    p.add_argument("--hard-bc", action="store_true", help="build the wall fluxes into the c network (Build 1)")
+    p.add_argument("--w-prior", type=float, default=0.0, help="weight of mean((phi - phi_start)^2)")
     a = p.parse_args()
     T = load_test()
     lo, hi = map(int, a.materials.split(":"))
@@ -522,10 +602,10 @@ def main():
             print(f"{stage:6s} step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
         R = train_batch([T["y"][k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
                         [th0 for *_, th0 in jobs], a.build, [k for _, _, k, _ in jobs], steps=a.steps, lr=a.lr,
-                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
+                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, prior=a.w_prior, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
                         fit_v=a.fit_v, fit_lbfgs_iters=a.fit_lbfgs_iters, prefit_cache=a.prefit_cache,
-                        freeze=tuple(x for x in a.freeze.split(",") if x),
+                        freeze=tuple(x for x in a.freeze.split(",") if x), residual=a.residual, hard_bc=a.hard_bc,
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
                         fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters)
         for (d, st, k, th0), r in zip(jobs, R):
