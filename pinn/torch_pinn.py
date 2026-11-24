@@ -71,14 +71,44 @@ def _sqrt_time(t, tmax):
     return torch.where(pos, torch.sqrt(torch.where(pos, t, torch.ones_like(t)) / tmax), torch.zeros_like(t))
 
 
+HARD_BC = False      # set by train_batch(hard_bc=True): the wall-flux conditions are built into the networks
+HARD_BC_ELL = 0.5    # width of the x = 0 correction, in units of s = sqrt(t / tmax)
+
+
+def _c_raw(p, x, s, io):
+    return mlp(p["c"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+
+
 def c_point(p, x, t, io, tmax):
+    """c = 1 + s N(x, s) (IC c(t=0) = 1 built in).  With HARD_BC, plus (g0 - s N_x(0)) x exp(-x / (ELL s)), which
+    leaves c(0) and the IC unchanged and makes c_x(0) = g0 = (t+ - 1) iota / (D alpha) at c(0), so with v(0) = 0
+    the wall flux J(0) = -D alpha c_x + t+ iota equals iota exactly (theta read from p["phi"])."""
     s = _sqrt_time(t, tmax)
-    return 1.0 + s * mlp(p["c"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+    c = 1.0 + s * _c_raw(p, x, s, io)
+    if not HARD_BC:
+        return c
+    x0 = torch.zeros_like(x)
+    n0x, n0 = grad_and_value(_c_raw, argnums=1)(p, x0, s, io)
+    dal, tp, _ = material(1.0 + s * n0, torch.sigmoid(p["phi"]))
+    g0 = (tp - 1.0) * io / dal
+    ell = torch.clamp(HARD_BC_ELL * s, min=1e-6)
+    return c + (g0 - s * n0x) * x * torch.exp(-x / ell)
+
+
+def _v_raw(p, x, s, io):
+    return mlp(p["v"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
 
 
 def v_point(p, x, t, io, tmax, vscale):
+    """v = vscale x N(x, s) (v(0) = 0 built in).  With HARD_BC, v(1) is set to (iota - q(1)) / c(1), so the wall flux
+    J(1) = q + c v equals iota exactly."""
     s = _sqrt_time(t, tmax)
-    return vscale * x * mlp(p["v"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+    if not HARD_BC:
+        return vscale * x * _v_raw(p, x, s, io)
+    x1 = torch.ones_like(x)
+    th = torch.sigmoid(p["phi"])
+    v1 = (io - q_point(p, th, x1, t, io, tmax)) / c_point(p, x1, t, io, tmax)
+    return vscale * x * (_v_raw(p, x, s, io) - _v_raw(p, x1, s, io)) + x * v1
 
 
 def q_point(p, th, x, t, io, tmax):
@@ -210,7 +240,16 @@ class Losses:
         return w["data"] * L["data"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def loss(self, p, S, x, t):
-        return (self.loss_cv if self.build == "cv" else self.loss_c)(p, S, x, t)
+        L, parts = (self.loss_cv if self.build == "cv" else self.loss_c)(p, S, x, t)
+        th = torch.sigmoid(p["phi"])
+        if self.w.get("prior", 0.0):          # pull theta toward its start (the FNO estimate for input A)
+            parts["prior"] = ((th - S["theta0"]) ** 2).sum()
+            L = L + self.w["prior"] * parts["prior"]
+        if self.w.get("smooth", 0.0):         # second differences of the Bernstein coefficients of ln D and t+
+            d2 = lambda z: z[:-2] - 2 * z[1:-1] + z[2:]  # noqa: E731
+            parts["smooth"] = (d2(th[:4]) ** 2).sum() + (d2(th[4:]) ** 2).sum()
+            L = L + self.w["smooth"] * parts["smooth"]
+        return L, parts
 
 
 # ------------------------------------------------------------------------------------------------ training
@@ -256,7 +295,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
-                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=()):
+                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), hard_bc=False):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -271,6 +310,10 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
       3 'lbfgs'  lbfgs_iters L-BFGS iterations on the total loss over every parameter, with one fixed set of
                  residual points, batched over the fits (two-loop recursion and Armijo backtracking per fit)
     """
+    global HARD_BC
+    HARD_BC = bool(hard_bc)
+    if HARD_BC and build != "cv":
+        raise ValueError("hard_bc is implemented for Build 1 (cv) only")
     B = len(ys)
     LS = Losses(build, dtype, device, n_res, n_times, n_cells, w)
     LS.use_vdata = bool(fit_v and build == "cv")
@@ -278,6 +321,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     S = {k: torch.tensor(np.stack([s[k] for s in st]), device=device, dtype=torch.bool if k == "mask" else dtype)
          for k in ("y", "mask", "v_obs", "vmask", "iotas", "tmax", "vscale", "st", "sigma", "s_lo")}
     S["vmask"] = S["vmask"].bool()
+    S["theta0"] = torch.tensor(np.stack(theta0s), device=device, dtype=dtype)
     sizes = [3] + [width] * depth + [1]
     P = []
     for th0, sd in zip(theta0s, seeds):
@@ -433,7 +477,12 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     stopped = False
     cache = Path(prefit_cache) if prefit_cache else None
     tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
-    files = [cache / f"{tag}_s{int(sd)}.pt" for sd in seeds] if cache else []
+    if HARD_BC:                                                  # the stage-1 c and v then depend on theta0
+        import hashlib
+        th_tag = [hashlib.md5(np.asarray(th, np.float64).round(12).tobytes()).hexdigest()[:8] for th in theta0s]
+        files = [cache / f"{tag}_hardbc_s{int(sd)}_{h}.pt" for sd, h in zip(seeds, th_tag)] if cache else []
+    else:
+        files = [cache / f"{tag}_s{int(sd)}.pt" for sd in seeds] if cache else []
     if cache and all(f.exists() for f in files):
         loaded = [torch.load(f, map_location=device) for f in files]
         new = _leaves(_stack(loaded))
@@ -445,7 +494,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             params, stopped = adam(params, fit_steps, fit_lr, 0.0, step_data, "fit")
             stage_wall["fit"] = time.perf_counter() - t0
         if fit_lbfgs_iters and not stopped:
-            params, stopped = lbfgs(params, fit_lbfgs_iters, step_data, "fitlbfgs")
+            params, stopped = lbfgs(params, fit_lbfgs_iters, step_data, "fitlbfgs", frozen=is_phi)  # theta fixed
             stage_wall["fitlbfgs"] = time.perf_counter() - t0
         if cache and not stopped:
             cache.mkdir(parents=True, exist_ok=True)
@@ -469,7 +518,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     record("end", params)
     w_used = LS.w
     sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, fit_lbfgs_iters=fit_lbfgs_iters, fit_v=LS.use_vdata,
-                 freeze=list(freeze), warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
+                 freeze=list(freeze), hard_bc=HARD_BC, warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
                  phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
     return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
                  evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], v_rel_rmse=logs[b][-1]["v_rel_rmse"],
@@ -506,6 +555,9 @@ def main():
     p.add_argument("--fit-lbfgs-iters", type=int, default=0, help="stage 1: L-BFGS iterations on the data loss after the Adam fit")
     p.add_argument("--prefit-cache", type=Path, default=None, help="folder caching the stage-1 networks per material")
     p.add_argument("--freeze", default="", help="comma list of networks (c, v) held fixed after stage 1, e.g. c,v")
+    p.add_argument("--w-prior", type=float, default=0.0, help="weight of sum (theta - theta_start)^2 in the total loss")
+    p.add_argument("--w-smooth", type=float, default=0.0, help="weight of the squared second differences of theta")
+    p.add_argument("--hard-bc", action="store_true", help="Build 1: wall fluxes J(0) = J(1) = iota built into c and v")
     a = p.parse_args()
     T = load_test()
     lo, hi = map(int, a.materials.split(":"))
@@ -522,10 +574,11 @@ def main():
             print(f"{stage:6s} step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
         R = train_batch([T["y"][k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
                         [th0 for *_, th0 in jobs], a.build, [k for _, _, k, _ in jobs], steps=a.steps, lr=a.lr,
-                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
+                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc,
+                                                                     prior=a.w_prior, smooth=a.w_smooth),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
                         fit_v=a.fit_v, fit_lbfgs_iters=a.fit_lbfgs_iters, prefit_cache=a.prefit_cache,
-                        freeze=tuple(x for x in a.freeze.split(",") if x),
+                        freeze=tuple(x for x in a.freeze.split(",") if x), hard_bc=a.hard_bc,
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
                         fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters)
         for (d, st, k, th0), r in zip(jobs, R):
