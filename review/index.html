@@ -1,0 +1,541 @@
+<title>Diffion Results Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+  svg: { fontCache: "local", mtextInheritFont: true },
+  startup: { pageReady: () => MathJax.startup.defaultPageReady().then(() => window.renderSvgMath && window.renderSvgMath()) }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<style>
+/* Layout: one reading column (~66ch prose), wide tables and diagrams break out to 1100px; lab-notebook slate with one ink-teal accent */
+:root{
+  --bg:#f5f7f8; --panel:#ffffff; --fg:#17212b; --muted:#566573; --line:#d3dbe1; --soft:#e8eef1;
+  --accent:#0b6e75; --accent-soft:#d7eeee; --warm:#a4521b; --warm-soft:#f6e6da; --good:#2c7a3f; --bad:#b03a2e;
+  --plate:#ffffff;
+  --f-head:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --panel:#162029; --fg:#e3eaef; --muted:#97a6b3; --line:#2b3a46; --soft:#1c2832;
+  --accent:#52c2c8; --accent-soft:#163a3d; --warm:#e8995f; --warm-soft:#3a2a1e; --good:#6cc684; --bad:#ef7d70;
+  --plate:#f3f5f6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --panel:#162029; --fg:#e3eaef; --muted:#97a6b3; --line:#2b3a46; --soft:#1c2832;
+  --accent:#52c2c8; --accent-soft:#163a3d; --warm:#e8995f; --warm-soft:#3a2a1e; --good:#6cc684; --bad:#ef7d70;
+  --plate:#f3f5f6; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);margin:0}
+.wrap{max-width:1100px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.prose{max-width:68ch}
+h1,h2,h3{font-family:var(--f-head);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.3rem;font-weight:600;letter-spacing:-.01em}
+h2{font-size:1.6rem;font-weight:600;margin-top:56px;padding-top:16px;border-top:1px solid var(--line)}
+h3{font-size:1.18rem;font-weight:600;margin-top:32px}
+p{margin:.6em 0}
+.eyebrow{font:500 .75rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:1.08rem;color:var(--muted);max-width:68ch}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--soft);padding:1px 5px;border-radius:3px}
+a{color:var(--accent)}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:20px;font-size:.92rem}
+nav.toc a{text-decoration:none;border-bottom:1px solid var(--line)}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:28px}
+.verdict div{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.verdict b{display:block;font:600 1.5rem/1.1 var(--f-head);margin-bottom:4px}
+.verdict span{color:var(--muted);font-size:.9rem}
+.tbl{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:720px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 .74rem/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--soft)}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tr.grp td{background:var(--soft);font:600 .8rem/1.3 var(--f-body);color:var(--fg)}
+tr.best td{background:var(--accent-soft)}
+.pill{display:inline-block;font:500 .72rem/1 var(--f-mono);padding:3px 7px;border-radius:999px;white-space:nowrap}
+.p-done{background:var(--accent-soft);color:var(--accent)}
+.p-part{background:var(--warm-soft);color:var(--warm)}
+.p-todo{background:var(--soft);color:var(--muted)}
+.note{font-size:.85rem;color:var(--muted)}
+.callout{border-left:3px solid var(--warm);background:var(--panel);padding:10px 14px;margin:16px 0;max-width:80ch;border-radius:0 6px 6px 0}
+figure{margin:18px 0}
+figure .plate{background:var(--plate);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto}
+figure img{display:block;max-width:100%;height:auto;margin:0 auto}
+figcaption{font-size:.85rem;color:var(--muted);margin-top:6px;max-width:80ch}
+.figs2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.figs2 figure{min-width:0;margin:0}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto;margin:14px 0}
+.diagram svg{display:block;min-width:760px;width:100%;height:auto}
+.diagram svg svg{min-width:0;width:auto;display:inline}
+svg text{font-family:var(--f-body);fill:var(--fg)}
+svg .tm{fill:var(--muted)}
+svg .mono{font-family:var(--f-mono)}
+svg .bx{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+svg .bx2{fill:var(--soft);stroke:var(--line);stroke-width:1.2}
+svg .ac{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.2}
+svg .wm{fill:var(--warm-soft);stroke:var(--warm);stroke-width:1.2}
+svg .ln{stroke:var(--muted);stroke-width:1.4;fill:none}
+svg .lna{stroke:var(--accent);stroke-width:1.4;fill:none}
+svg .dash{stroke:var(--muted);stroke-width:1.2;fill:none;stroke-dasharray:4 3}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .ah{fill:var(--muted)}
+svg .aha{fill:var(--accent)}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin:12px 0}
+.specs dl{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+.specs dt{font:600 .72rem/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:8px}
+.specs dt:first-child{margin-top:0}
+.specs dd{margin:2px 0 0;font-size:.9rem}
+.eq{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 14px;overflow-x:auto;font-size:.95rem}
+mjx-container{color:inherit}
+mjx-container[display="true"]{margin:.6em 0 !important}
+ul{padding-left:1.2em}
+li{margin:.25em 0}
+#unified{min-width:1240px}
+#unified td:first-child{min-width:280px}
+#unified td:nth-child(2){white-space:nowrap}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.ctl button{font:500 .85rem/1 var(--f-body);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.ctl button.on{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin:6px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+@media (max-width:520px){h1{font-size:1.8rem}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">CBE 236 · Diffion · branch Junbo @ 0fd350e · 24 Nov 2026</div>
+  <h1 style="margin-top:10px">Diffion results review</h1>
+  <p class="lede">Every result so far for recovering \(D(c)\) and \(t_+(c)\) from \(c(x,t)\), and the networks behind them. Numbers are read from <code>results/*/summary.json</code> and <code>summary.txt</code> on branch <code>Junbo</code>; architectures from the code in <code>surrogate/</code> and <code>pinn/</code>.</p>
+  <nav class="toc">
+    <a href="#summary">Summary</a><a href="#setup">Problem and data</a><a href="#results">Unified comparison</a><a href="#compare">Start-to-end chart</a><a href="#other">Other experiments</a><a href="#arch-sup">MLP and FNO</a><a href="#arch-ttt">Test-time training</a><a href="#arch-pinn">PINN builds</a><a href="#schedules">PINN training schedules</a><a href="#next">Still to do</a>
+  </nav>
+  <div class="verdict" id="summary">
+    <div><b>0 %</b><span>L-BFGS through the differentiable solver recovers \(D\) exactly from either start (300 materials, about 3 s each).</span></div>
+    <div><b>5.5 %</b><span>FNO + TTT, the best learned estimate, in under a second per material. It is the input-A start for every refinement.</span></div>
+    <div><b>3.4–4.4 %</b><span>Nelder–Mead and CMA-ES stop at 0.01 % \(c\) misfit, which still leaves \(D\) off by a few percent.</span></div>
+    <div><b>11.6 %</b><span>Best PINN (data-first, from input B). No PINN variant beats its own FNO + TTT start.</span></div>
+  </div>
+</header>
+
+<section id="setup">
+<h2>Problem and data</h2>
+<div class="prose">
+<p>The cell is 1-D, with salt concentration \(c(x,t)\), constant current \(\iota\), and an unknown \(D(c)\) and \(t_+(c)\). Each is a cubic Bernstein curve in \(u = c/2\), so a material is 8 coefficients \(\theta \in [0,1]^8\) (4 for \(\ln D\), 4 for \(t_+\)). \(\alpha(c)\) and \(V(c)\) come from a known density.</p>
+</div>
+<div class="eq">\[
+\begin{aligned}
+&\frac{\partial c}{\partial t} + \frac{\partial J}{\partial x} = 0, \qquad J = q + c\,v,\\
+&q = -D(c)\,\alpha(c)\,\frac{\partial c}{\partial x} + t_+(c)\,\iota,\\
+&\frac{\partial v}{\partial x} = -V(c)\,\frac{\partial q}{\partial x}, \qquad v(0,t) = 0, \qquad J(0,t) = J(1,t) = \iota, \qquad c(x,0) = 1
+\end{aligned}
+\]</div>
+<div class="prose">
+<ul>
+<li><b>Simulation:</b> 40 finite-volume cells, Crank–Nicolson with Newton, 16 steps per frame interval.</li>
+<li><b>Observation:</b> 13 frames (\(t_k = 240\,\mathrm{s} + 960\,\mathrm{s}\cdot k\)) × 20 bins, noise-free, at <b>three currents</b> per material (strata \(k = 0, 2, 4\) of \(\iota \in [0, 5]\)). Frames after a current fails (\(c \notin [10^{-4}, 2]\)) are dropped.</li>
+<li><b>Split:</b> 14,995 materials kept; 10,336 train, 593 validation, 300 test. Every method on this page is scored on those 300 test materials, or on the first 8 of them for the PINNs.</li>
+<li><b>Inputs to the refinement methods:</b> <b>A</b> starts \(\theta\) at a network prediction (FNO + TTT unless noted). <b>B</b> starts at \(\theta = 0.5\), with no learned start.</li>
+<li><b>Main score:</b> \(D\) relative \(L_2\) error (%) over the observed \(c\) window, median over materials.</li>
+</ul>
+</div>
+</section>
+
+<section id="results">
+<h2>Unified comparison of every run</h2>
+<p class="prose">Every inverse run recorded on branch <code>Junbo</code> at <code>1094a3f</code>, scored the same way: the recorded \(\theta\) of each material is compared with the true \(\theta\) over that material’s observed \(c\) window, using the scoring in <code>analysis/metrics.py</code>. The default view puts every method on the same 8 test materials (0–7), which are the only ones the PINNs were run on. Switch to “all materials” to see each run on its full set (300 for the learned nets, L-BFGS, NM and CMA-ES, 30 for BO).</p>
+<div class="ctl" role="group" aria-label="Material set">
+  <button type="button" id="set8" class="on" aria-pressed="true">Same 8 materials (test 0–7)</button>
+  <button type="button" id="setall" aria-pressed="false">All materials per run</button>
+</div>
+<div class="tbl"><table id="unified">
+<thead><tr><th>Method</th><th>Input</th><th class="n">\(n\)</th><th class="n">\(D\) err start</th><th class="n">\(D\) err end</th><th class="n">Better than start</th><th class="n">\(t_+\) RMSE end</th><th class="n">\(c\) misfit / mean \(c\)</th><th class="n">Solver calls or steps</th><th class="n">Wall time per material</th></tr></thead>
+<tbody></tbody></table></div>
+<div class="note prose">
+<ul>
+<li>All values are medians over materials, except “better”, which counts materials whose \(D\) error ended below their start. Green rows have the lowest \(D\) error in their group.</li>
+<li><b>Learned rows</b> use seed 0, the network that produced input A. The TTT row’s start is the supervised prediction of the same network. Earlier tables quoted the mean of 3 seeds (MLP 9.1 %, FNO 8.4 %, FNO + TTT 5.5 %). Inference costs \(7\times10^{-6}\) s (MLP) and \(1.6\times10^{-4}\) s (FNO) per material after a one-time training of 0.4 and 8.9 min.</li>
+<li><b>Solver calls</b>: one L-BFGS call is a forward and an adjoint solve; NM, CMA-ES and BO calls are forward solves. <b>Steps</b> are optimizer steps (TTT: AdamW; PINN: Adam, then L-BFGS where used, all stages).</li>
+<li><b>\(c\) misfit</b> is the RMS misfit to the data over mean \(c\). The learned nets never simulate \(c\), so they have none.</li>
+<li><b>Wall time</b>: the GPU PINNs ran 16 fits per batch on an RTX 4090, so their time is the batch time ÷ 16. JAX CPU PINN fits ran 32 in parallel, one thread each. The data-first stage 1 is cached and shared between runs, so those wall times depend on which run fitted it. Solver runs: L-BFGS on a 4-core cloud machine, NM/CMA-ES/BO on one PC with 8 processes.</li>
+<li>Frozen runs: “frozen \(c, v\)” keeps both stage-1 networks fixed and fits only \(\theta\) to the physics. “Frozen \(c\)” keeps the \(c\) network fixed and trains \(v\) and \(\theta\), with \(w_\text{data}=10^{-2}\). Both start from the data-first stage 1 (\(c\) misfit 0.02 %).</li>
+</ul>
+</div>
+
+<div class="callout prose"><b>What the PINN numbers say.</b> The physics only picks out \(\theta\) when \(c\) is fitted far more accurately than any PINN reaches. Total-loss and staged runs stall at 0.26–0.8 % \(c\) misfit. Fitting \(c\) and \(v\) first brings it to 0.02 % after stage 1, which is the best PINN result so far. When the physics is switched on the misfit rises again to 0.07–0.09 %, and from input A the \(D\) error still ends above its 5.7 % start (3 of 8 improve). Holding the stage-1 networks fixed keeps the misfit at 0.02 % but leaves \(D\) at 13–17 % from either start, so an accurate \(c\) alone is not enough: the physics residual built from a fitted network still does not single out \(\theta\). The solver-based fits reach 0.01 % (NM) or \(10^{-10}\) (L-BFGS).</div>
+
+<h3>Learned inference figures</h3>
+<div class="figs2">
+<figure><div class="plate"><img src="fig/A1_errors.png" alt="Per-material errors of MLP and FNO before and after TTT"></div><figcaption>A1. Errors of MLP and FNO, with and without TTT, on the 300 test materials.</figcaption></figure>
+<figure><div class="plate"><img src="fig/A2_error_reduction.png" alt="Error reduction from test-time training"></div><figcaption>A2. Error reduction from TTT, per material.</figcaption></figure>
+<figure><div class="plate"><img src="fig/A6_ttt_steps.png" alt="Error and PDE loss against TTT step"></div><figcaption>A6. \(\ln D\) error and PDE loss against TTT step (0–150). The error briefly rises in the first 10 steps before falling.</figcaption></figure>
+<figure><div class="plate"><img src="fig/A4_training_curves.png" alt="Supervised training curves"></div><figcaption>A4. Supervised training curves, coefficient MSE and the diagnostic PDE loss on validation.</figcaption></figure>
+</div>
+
+<h3>Solver-based and PINN figures</h3>
+<figure><div class="plate"><img src="fig/lbfgs_start_comparison.png" alt="L-BFGS convergence by start"></div><figcaption>L-BFGS convergence and cost by start, 300 materials. A learned start cuts evaluations to 0.01 % RMSE from 45 to 32–40.</figcaption></figure>
+<div class="figs2">
+<figure><div class="plate"><img src="fig/pinn_total_gpu.png" alt="Total-loss PINN results"></div><figcaption>Total-loss PINN (GPU), Builds 1 and 2, inputs A and B, against L-BFGS and NM on the same 8 materials.</figcaption></figure>
+<figure><div class="plate"><img src="fig/pinn_staged_w100.png" alt="Staged PINN results"></div><figcaption>Staged PINN, physics weight \(w = 100\). The data-first runs have no figure yet; their numbers are in the table above.</figcaption></figure>
+</div>
+</section>
+
+<section id="compare">
+<h2>Start-to-end chart, same 8 materials</h2>
+<p class="prose note">Median \(D\) error of every refinement run on test materials 0–7, start (hollow) to end (filled), sorted by the end value. Hover a row for its numbers. The table above holds the same values.</p>
+<div class="legend"><span><i style="border:2px solid var(--muted);background:transparent"></i>start</span><span><i style="background:var(--accent)"></i>end, better than start</span><span><i style="background:var(--bad)"></i>end, worse than start</span></div>
+<div class="diagram"><svg id="dumbA" role="img" aria-label="D error from start to end, input A"></svg></div>
+<div class="diagram"><svg id="dumbB" role="img" aria-label="D error from start to end, input B"></svg></div>
+</section>
+
+<section id="other">
+<h2>Other recorded experiments</h2>
+<p class="prose">Two more sets of runs are on record. They use a different setup from the table above, so they sit apart from it.</p>
+<h3>PINN tuning sweep (1 material, total loss)</h3>
+<p class="prose note">The 20-variant sweep in <code>results/pinn_sweep</code> on test material 0 (JAX, CPU, 5000 Adam steps) that picked the total-loss defaults. “Truth” holds \(\theta\) at the true value and trains only the networks. \(\phi\) lr is the multiple of the network learning rate; “early” draws residual points from \(s = 0.05\), “observed” from the first frame.</p>
+<div class="tbl"><table id="sweep" style="min-width:680px">
+<thead><tr><th>Build</th><th>Start</th><th class="n">\(\phi\) lr</th><th class="n">\(w\)</th><th>Residual window</th><th class="n">\(D\) err start → end</th><th class="n">\(t_+\) RMSE</th><th class="n">\(c\) misfit / mean \(c\)</th><th class="n">Wall time</th></tr></thead><tbody></tbody></table></div>
+<h3>Compact-model optimizer baselines (1 material, 5 starts)</h3>
+<p class="prose note">The first benchmark, in <code>results/numerical baselines</code>: the compact model (<code>solver/transport_1d.py</code>, \(\alpha = 1\), \(\bar V = 0.1\), its own coefficient ranges), one material, the same 5 Sobol starts for each method, run to a \(c\) RMSE target. Its error is the MSE of the coefficients, not the \(D\) error above. Budget 2000 calls (BO 400 at 1 % and 0.1 %); at 0.01 % also a 30 min cap.</p>
+<div class="tbl"><table id="compact" style="min-width:640px">
+<thead><tr><th>Target RMSE</th><th>Method</th><th class="n">Reached</th><th class="n">Calls to target</th><th class="n">Wall time to target</th><th class="n">MSE \(D\) at end</th><th class="n">MSE \(t_+\) at end</th></tr></thead><tbody></tbody></table></div>
+<figure><div class="plate"><img src="fig/benchmark_target_0.01pct.png" alt="Compact-model baselines at the 0.01 % target"></div><figcaption>Compact-model baselines at the 0.01 % target: (a) wall time and (b) solver calls to the target, (c) MSE of \(D\) and (d) of \(t_+\) at the best fit, for each of the 5 starts.</figcaption></figure>
+</section>
+
+
+<section id="arch-sup">
+<h2>Supervised networks: MLP and FNO</h2>
+<p class="prose">Both map one material’s measured field to the 8 coefficients in one forward pass. They are the same size (about 65k parameters) so the comparison is about structure. Code: <code>surrogate/models.py</code>, <code>surrogate/train.py</code>.</p>
+
+<h3>Input features (shared)</h3>
+<p class="prose">12 channels on the 13-frame × 20-bin grid. \(c - 1\) and \(v\) are divided by their training RMS; \(v\) comes from \(c\) through conservation and the volume constraint (<code>surrogate/data.velocity_from_c</code>), with nothing fitted. Frames past the last valid one are zeroed and flagged by the mask.</p>
+<div class="diagram"><svg viewBox="0 0 960 120">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" class="ah"/></marker><marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" class="aha"/></marker></defs>
+  <g font-size="12.5">
+    <rect class="ac" x="10" y="20" width="150" height="80" rx="4"/><text x="85" y="46" text-anchor="middle" font-weight="600" data-tex="c - 1">c − 1</text><text x="85" y="64" text-anchor="middle" class="tm">3 currents</text><text x="85" y="82" text-anchor="middle" class="tm mono" font-size="11">ch 0–2</text>
+    <rect class="ac" x="170" y="20" width="150" height="80" rx="4"/><text x="245" y="46" text-anchor="middle" font-weight="600" data-tex="v\ \text{(from } c\text{)}">v (from c)</text><text x="245" y="64" text-anchor="middle" class="tm">3 currents</text><text x="245" y="82" text-anchor="middle" class="tm mono" font-size="11">ch 3–5</text>
+    <rect class="bx2" x="330" y="20" width="110" height="80" rx="4"/><text x="385" y="46" text-anchor="middle" font-weight="600">frame mask</text><text x="385" y="64" text-anchor="middle" class="tm">valid frames</text><text x="385" y="82" text-anchor="middle" class="tm mono" font-size="11">ch 6</text>
+    <rect class="bx2" x="450" y="20" width="110" height="80" rx="4"/><text x="505" y="46" text-anchor="middle" font-weight="600" data-tex="t,\ x">t, x</text><text x="505" y="64" text-anchor="middle" class="tm" data-tex="\in [0,1]">in [0, 1]</text><text x="505" y="82" text-anchor="middle" class="tm mono" font-size="11">ch 7–8</text>
+    <rect class="bx2" x="570" y="20" width="130" height="80" rx="4"/><text x="635" y="46" text-anchor="middle" font-weight="600" data-tex="\iota / 3">ι / 3</text><text x="635" y="64" text-anchor="middle" class="tm">each current</text><text x="635" y="82" text-anchor="middle" class="tm mono" font-size="11">ch 9–11</text>
+    <path class="ln" d="M710,60 H770" marker-end="url(#ar)"/>
+    <rect class="bx" x="780" y="20" width="170" height="80" rx="4"/><text x="865" y="50" text-anchor="middle" font-weight="600" data-tex="\text{tensor } (B, 12, 13, 20)">tensor (B, 12, 13, 20)</text><text x="865" y="72" text-anchor="middle" class="tm">÷ channel RMS</text>
+  </g>
+</svg></div>
+
+<h3>MLP</h3>
+<div class="diagram"><svg viewBox="0 0 960 150">
+  <g font-size="12.5">
+    <rect class="ac" x="10" y="25" width="200" height="100" rx="4"/><text x="110" y="52" text-anchor="middle" font-weight="600" data-tex="\text{flatten} \to 1576">flatten → 1576</text><text x="110" y="72" text-anchor="middle" class="tm" data-tex="c-1,\ v:\ 6 \times 260 = 1560">c−1, v maps: 6 × 260 = 1560</text><text x="110" y="90" text-anchor="middle" class="tm">frame mask: 13</text><text x="110" y="108" text-anchor="middle" class="tm" data-tex="\iota/3:\ 3">ι / 3: 3</text>
+    <path class="ln" d="M215,75 H255" marker-end="url(#ar)"/>
+    <rect class="bx" x="260" y="40" width="140" height="70" rx="4"/><text x="330" y="68" text-anchor="middle" font-weight="600" data-tex="\text{Linear } 1576 \to 40">Linear 1576→40</text><text x="330" y="88" text-anchor="middle" class="tm">GELU · 63,080</text>
+    <path class="ln" d="M405,75 H440" marker-end="url(#ar)"/>
+    <rect class="bx" x="445" y="40" width="130" height="70" rx="4"/><text x="510" y="68" text-anchor="middle" font-weight="600" data-tex="\text{Linear } 40 \to 40">Linear 40→40</text><text x="510" y="88" text-anchor="middle" class="tm">GELU · 1,640</text>
+    <path class="ln" d="M580,75 H615" marker-end="url(#ar)"/>
+    <rect class="bx" x="620" y="40" width="120" height="70" rx="4"/><text x="680" y="68" text-anchor="middle" font-weight="600" data-tex="\text{Linear } 40 \to 8">Linear 40→8</text><text x="680" y="88" text-anchor="middle" class="tm">328</text>
+    <path class="ln" d="M745,75 H780" marker-end="url(#ar)"/>
+    <rect class="wm" x="785" y="40" width="165" height="70" rx="4"/><text x="867" y="64" text-anchor="middle" font-weight="600" data-tex="\theta = \operatorname{sigmoid}(z)">θ = sigmoid(z)</text><text x="867" y="82" text-anchor="middle" class="tm" data-tex="\theta_D\ (4)\ \cdot\ \theta_t\ (4)">θ_D (4) · θ_t (4)</text><text x="867" y="99" text-anchor="middle" class="tm mono" font-size="11">65,048 params</text>
+  </g>
+</svg></div>
+<p class="prose note">\(x\) and \(t\) enter only through position in the flattened vector; the \(t\), \(x\) and broadcast \(\iota\) channels are not used by the MLP.</p>
+
+<h3>FNO</h3>
+<div class="diagram"><svg viewBox="0 0 960 270">
+  <g font-size="12.5">
+    <rect class="ac" x="10" y="40" width="120" height="70" rx="4"/><text x="70" y="68" text-anchor="middle" font-weight="600" data-tex="12 \times 13 \times 20">12 × 13 × 20</text><text x="70" y="88" text-anchor="middle" class="tm">features</text>
+    <path class="ln" d="M135,75 H165" marker-end="url(#ar)"/>
+    <rect class="bx" x="170" y="40" width="130" height="70" rx="4"/><text x="235" y="64" text-anchor="middle" font-weight="600" data-tex="\text{lift } 1{\times}1 \text{ conv}">lift 1×1 conv</text><text x="235" y="82" text-anchor="middle" class="tm" data-tex="12 \to \text{width } 11">12 → width 11</text><text x="235" y="99" text-anchor="middle" class="tm" data-tex="\text{pad to } 16 \times 24">pad to 16 × 24</text>
+    <path class="ln" d="M305,75 H335" marker-end="url(#ar)"/>
+    <rect class="bx2" x="340" y="12" width="360" height="128" rx="6" stroke-dasharray="5 3"/>
+    <text x="520" y="30" text-anchor="middle" font-weight="600" data-tex="\text{Fourier layer} \times 4">Fourier layer × 4</text>
+    <rect class="bx" x="355" y="42" width="215" height="38" rx="4"/><text x="462" y="66" text-anchor="middle" data-tex="\mathcal{F}^{-1}\!\big(R \cdot \mathcal{F}(h)\big|_{5\times6\ \text{modes}}\big)">FFT → keep 5×6 modes (2 corners) → R → iFFT</text>
+    <rect class="bx" x="355" y="90" width="215" height="38" rx="4"/><text x="462" y="114" text-anchor="middle" data-tex="W h \quad (\text{pointwise } 1{\times}1)">pointwise 1×1 conv W</text>
+    <text x="588" y="90" font-size="20" class="tm">+</text>
+    <rect class="bx" x="610" y="64" width="80" height="40" rx="4"/><text x="650" y="89" text-anchor="middle">GELU*</text>
+    <path class="ln" d="M705,75 H735" marker-end="url(#ar)"/>
+    <rect class="bx" x="740" y="40" width="210" height="70" rx="4"/><text x="845" y="64" text-anchor="middle" font-weight="600" data-tex="\text{crop } 13{\times}20 \cdot 1{\times}1 \text{ proj}">crop 13×20 · 1×1 proj</text><text x="845" y="82" text-anchor="middle" class="tm" data-tex="11 \to 22,\ \text{GELU}">11 → 22, GELU</text>
+    <path class="ln" d="M845,115 V150 H760" marker-end="url(#ar)"/>
+    <rect class="bx" x="560" y="160" width="195" height="70" rx="4"/><text x="657" y="184" text-anchor="middle" font-weight="600">masked pooling</text><text x="657" y="202" text-anchor="middle" class="tm" data-tex="\text{mean} + \text{max over valid } (t, x)">mean + max over valid (t, x)</text><text x="657" y="219" text-anchor="middle" class="tm" data-tex="\to 44">→ 44</text>
+    <path class="ln" d="M555,195 H515" marker-end="url(#ar)"/>
+    <rect class="bx" x="300" y="160" width="210" height="70" rx="4"/><text x="405" y="188" text-anchor="middle" font-weight="600" data-tex="\text{Linear } 44 \to 128,\ \text{GELU}">Linear 44→128, GELU</text><text x="405" y="208" text-anchor="middle" class="tm" data-tex="\text{Linear } 128 \to 8">Linear 128→8</text>
+    <path class="ln" d="M295,195 H255" marker-end="url(#ar)"/>
+    <rect class="wm" x="80" y="160" width="170" height="70" rx="4"/><text x="165" y="186" text-anchor="middle" font-weight="600" data-tex="\theta = \operatorname{sigmoid}(z)">θ = sigmoid(z)</text><text x="165" y="206" text-anchor="middle" class="tm mono" font-size="11">65,807 params</text>
+    <text x="10" y="258" class="tm" font-size="11.5" data-tex="^{*}\,\text{no GELU after the 4th layer. Spectral weights: } 4 \times 2\ \text{corners} \times 11 \times 11 \times 5 \times 6 \text{ complex} = 58{,}080 \text{ real params, most of the model.}" data-anchor="start">* no GELU after the 4th layer. Spectral weights: 4 × 2 corners × 11 × 11 × 5 × 6 complex = 58,080 real params, most of the model.</text>
+  </g>
+</svg></div>
+
+<div class="specs">
+<dl><dt>Loss</dt><dd>MSE of the 8 coefficients, \(\operatorname{sigmoid}(z)\) vs \(\theta\). No physics in the training loss; the PDE loss is logged on validation only.</dd>
+<dt>Optimizer</dt><dd>AdamW (weight decay 0.01), lr \(10^{-3}\), cosine decay to 0 per step, batch 64, 100 epochs (16,200 steps), one CPU thread.</dd></dl>
+<dl><dt>Checkpoint</dt><dd>Best validation coefficient MSE.</dd>
+<dt>Seeds</dt><dd>3 per architecture; tables give the mean of the seed medians.</dd>
+<dt>Cost</dt><dd>MLP 0.4 min, \(2.7\times10^{11}\) FLOPs. FNO 8.9 min, \(1.9\times10^{12}\) FLOPs.</dd></dl>
+<dl><dt>FNO vs MLP</dt><dd>After TTT the FNO is lower on 75 % (\(\ln D\)) and 76 % (\(t_+\)) of materials, median error ratio 0.78 / 0.76.</dd></dl>
+</div>
+</section>
+
+<section id="arch-ttt">
+<h2>Test-time training (TTT)</h2>
+<p class="prose">TTT adapts the supervised network to one test material using physics only, with no labels. This is the “route 2” stage; it was in the folder named <code>vanilla pinn</code> but it is not a PINN, since no network represents \(c\). Code: <code>pinn/ttt.py</code>, <code>pinn/pde_loss.py</code>.</p>
+<div class="diagram"><svg viewBox="0 0 960 200">
+  <g font-size="12.5">
+    <rect class="bx2" x="10" y="60" width="150" height="70" rx="4"/><text x="85" y="88" text-anchor="middle" font-weight="600" data-tex="\text{stage-1 weights } w_0">stage-1 weights w₀</text><text x="85" y="108" text-anchor="middle" class="tm">MLP or FNO</text>
+    <path class="ln" d="M165,95 H200" marker-end="url(#ar)"/>
+    <rect class="bx" x="205" y="60" width="130" height="70" rx="4"/><text x="270" y="88" text-anchor="middle" font-weight="600" data-tex="\text{copy } w \leftarrow w_0">copy w ← w₀</text><text x="270" y="108" text-anchor="middle" class="tm">per material</text>
+    <path class="ln" d="M340,95 H375" marker-end="url(#ar)"/>
+    <rect class="ac" x="380" y="60" width="150" height="70" rx="4"/><text x="455" y="88" text-anchor="middle" font-weight="600" data-tex="\theta = \sigma\big(\mathrm{net}_w(c, v)\big)">θ = σ(net_w(c, v))</text><text x="455" y="108" text-anchor="middle" class="tm">that material’s data</text>
+    <path class="ln" d="M535,95 H570" marker-end="url(#ar)"/>
+    <rect class="wm" x="575" y="45" width="210" height="100" rx="4"/><text x="680" y="70" text-anchor="middle" font-weight="600">PDE loss on the data grid</text><text x="680" y="90" text-anchor="middle" class="tm">FV residual of salt conservation</text><text x="680" y="108" text-anchor="middle" class="tm" data-tex="\text{measured } c,\ 20 \text{ bins} \times 13 \text{ frames}">measured c, 20 bins × 13 frames</text><text x="680" y="126" text-anchor="middle" class="tm" data-tex="\div\ \mathrm{RMS}(\partial c/\partial t)">÷ RMS of ∂c/∂t</text>
+    <path class="ln" d="M790,95 H830" marker-end="url(#ar)"/>
+    <rect class="bx" x="835" y="60" width="115" height="70" rx="4"/><text x="892" y="88" text-anchor="middle" font-weight="600" data-tex="\hat{\theta} \text{ at step } 150">θ̂ at step 150</text><text x="892" y="108" text-anchor="middle" class="tm">then reset</text>
+    <path class="lna" d="M680,150 V178 H455 V136" marker-end="url(#ara)"/>
+    <text x="568" y="194" text-anchor="middle" style="fill:var(--accent)" data-tex="\text{AdamW on all weights } w,\ \text{lr } 10^{-4},\ 150 \text{ steps}" data-color="var(--accent)">AdamW on all weights w, lr 1e-4, 150 steps</text>
+  </g>
+</svg></div>
+<div class="eq">\[
+\begin{aligned}
+r_j^{k+1/2} &= \frac{c_j^{k+1} - c_j^{k}}{\Delta t_k} + \frac12\left[\frac{J_{j+1/2} - J_{j-1/2}}{h}\bigg|_{k} + \frac{J_{j+1/2} - J_{j-1/2}}{h}\bigg|_{k+1}\right]\\
+q_{j+1/2} &= -D(c_f)\,\alpha(c_f)\,\frac{c_{j+1} - c_j}{h} + t_+(c_f)\,\iota, \quad v \text{ from the discrete volume constraint}, \quad J = q + c_f\,v, \quad J = \iota \text{ at walls}\\
+\mathcal{L}_\text{PDE} &= \operatorname*{mean}_{\text{valid }(\text{current},\,\text{interval},\,\text{cell})} \left(\frac{r}{s}\right)^{2}, \qquad \mathcal{L}_\text{PDE}(\theta_\text{true}) = 0.0052 \ \ (\text{20-bin discretization floor})
+\end{aligned}
+\]</div>
+<p class="prose note">Learning rate picked from \(\{10^{-5}, 10^{-4}, 10^{-3}\}\) on 100 validation materials with the seed-0 network. TTT cuts the PDE loss from 0.045 to 0.0039 (FNO), below the 0.0052 at the true \(\theta\), so 150 steps already reaches the grid’s floor. It improves 84 % (FNO) and 78 % (MLP) of materials.</p>
+</section>
+
+<section id="arch-pinn">
+<h2>PINN builds</h2>
+<p class="prose">One fit per material: networks represent the fields, and \(\theta = \operatorname{sigmoid}(\phi)\) is 8 trainable scalars started at input A or B. One network serves all three currents. Both builds exist in JAX (<code>pinn/jax_pinn.py</code>, CPU) and PyTorch (<code>pinn/torch_pinn.py</code>, CUDA, 16 fits batched); <code>tests/test_torch_pinn.py</code> checks they agree to \(10^{-9}\).</p>
+
+<div class="specs">
+<dl><dt>Network (each)</dt><dd>MLP \(3 \to 64 \to 64 \to 64 \to 64 \to 1\), tanh, output linear. 12,801 parameters. Init \(\mathcal{N}(0, 1/\text{fan\_in})\), zero bias. float64.</dd></dl>
+<dl><dt>Inputs</dt><dd>\((2x - 1,\ 2s - 1,\ \iota/5)\), with \(s = \sqrt{t / t_\text{max}}\), \(t_\text{max}\) the material’s last valid frame. \(\sqrt{t}\) resolves the early diffusion layer.</dd></dl>
+<dl><dt>Hard constraints</dt><dd>\(c = 1 + s\,N_c\) gives \(c(x,0) = 1\). \(v = v_\text{scale}\,x\,N_v\) gives \(v(0) = 0\). Derivatives by autodiff.</dd></dl>
+</div>
+
+<h3>Build 1 — \(c\) and \(v\) networks (<code>--build cv</code>)</h3>
+<div class="diagram"><svg viewBox="0 0 960 300">
+  <g font-size="12.5">
+    <rect class="ac" x="10" y="110" width="130" height="80" rx="4"/><text x="75" y="138" text-anchor="middle" font-weight="600" data-tex="(x,\ s,\ \iota/5)">(x, s, ι/5)</text><text x="75" y="158" text-anchor="middle" class="tm" data-tex="s = \sqrt{t/t_\text{max}}">s = √(t/t_max)</text><text x="75" y="176" text-anchor="middle" class="tm">random points</text>
+    <path class="ln" d="M145,140 L190,85" marker-end="url(#ar)"/><path class="ln" d="M145,160 L190,215" marker-end="url(#ar)"/>
+    <rect class="bx" x="195" y="50" width="150" height="70" rx="4"/><text x="270" y="78" text-anchor="middle" font-weight="600" data-tex="c\text{-net } 4{\times}64 \text{ tanh}">c-net 4×64 tanh</text><text x="270" y="98" text-anchor="middle" class="tm" data-tex="c = 1 + s\,N_c">c = 1 + s·N_c</text>
+    <rect class="bx" x="195" y="180" width="150" height="70" rx="4"/><text x="270" y="208" text-anchor="middle" font-weight="600" data-tex="v\text{-net } 4{\times}64 \text{ tanh}">v-net 4×64 tanh</text><text x="270" y="228" text-anchor="middle" class="tm" data-tex="v = v_\text{scale}\,x\,N_v">v = v_scale·x·N_v</text>
+    <rect class="wm" x="380" y="5" width="170" height="44" rx="4"/><text x="465" y="32" text-anchor="middle" font-weight="600" data-tex="\theta = \operatorname{sigmoid}(\phi),\ 8 \text{ params}">θ = sigmoid(φ), 8 params</text>
+    <path class="ln" d="M350,85 H395" marker-end="url(#ar)"/>
+    <path class="ln" d="M465,52 V64" marker-end="url(#ar)"/>
+    <rect class="bx2" x="400" y="66" width="150" height="80" rx="4"/><text x="475" y="90" text-anchor="middle" font-weight="600">material</text><text x="475" y="108" text-anchor="middle" class="tm" data-tex="D\alpha(c),\ t_+(c),\ V(c)">D(c)α(c), t₊(c), V(c)</text><text x="475" y="126" text-anchor="middle" class="tm" data-tex="q = -D\alpha\,c_x + t_+\iota">q = −Dα c_x + t₊ ι</text>
+    <path class="ln" d="M555,106 H595" marker-end="url(#ar)"/>
+    <path class="ln" d="M350,215 H580 V150" marker-end="url(#ar)"/>
+    <rect class="bx" x="600" y="66" width="160" height="80" rx="4"/><text x="680" y="90" text-anchor="middle" font-weight="600">autodiff</text><text x="680" y="108" text-anchor="middle" class="tm" data-tex="c_t,\ c_x,\ q_x,\ v_x">c_t, c_x, q_x, v_x</text><text x="680" y="126" text-anchor="middle" class="tm" data-tex="J = q + c\,v,\ J_x">J = q + c v, J_x</text>
+    <path class="ln" d="M765,106 H795" marker-end="url(#ar)"/>
+    <rect class="wm" x="800" y="40" width="150" height="132" rx="4"/><text x="875" y="62" text-anchor="middle" font-weight="600">penalized</text><text x="875" y="84" text-anchor="middle" class="tm" data-tex="r_c = c_t + J_x">r_c = c_t + J_x</text><text x="875" y="104" text-anchor="middle" class="tm" data-tex="r_v = v_x + V q_x">r_v = v_x + V q_x</text><text x="875" y="124" text-anchor="middle" class="tm" data-tex="J(0) = J(1) = \iota">J(0) = J(1) = ι</text><text x="875" y="150" text-anchor="middle" class="tm" font-size="11">1024 pts / current</text>
+    <path class="dash" d="M270,125 V160 H640" />
+    <rect class="ac" x="640" y="200" width="310" height="70" rx="4"/><text x="795" y="226" text-anchor="middle" font-weight="600" data-tex="\text{data: bin average of } c \text{ vs } y">data: bin average of c vs y</text><text x="795" y="246" text-anchor="middle" class="tm">4-point Gauss per bin, 20 bins × observed frames</text><text x="795" y="262" text-anchor="middle" class="tm" font-size="11" data-tex="\text{data-first runs add } v\text{-net vs } v \text{ reconstructed from } c">data-first runs add v-net vs v reconstructed from c</text>
+    <path class="dash" d="M640,160 V198"/>
+  </g>
+</svg></div>
+
+<h3>Build 2 — \(c\) network only (<code>--build c</code>)</h3>
+<div class="diagram"><svg viewBox="0 0 960 220">
+  <g font-size="12.5">
+    <rect class="ac" x="10" y="60" width="130" height="70" rx="4"/><text x="75" y="88" text-anchor="middle" font-weight="600" data-tex="(x,\ s,\ \iota/5)">(x, s, ι/5)</text><text x="75" y="108" text-anchor="middle" class="tm">32 times / current</text>
+    <path class="ln" d="M145,95 H175" marker-end="url(#ar)"/>
+    <rect class="bx" x="180" y="60" width="150" height="70" rx="4"/><text x="255" y="88" text-anchor="middle" font-weight="600" data-tex="c\text{-net } 4{\times}64 \text{ tanh}">c-net 4×64 tanh</text><text x="255" y="108" text-anchor="middle" class="tm" data-tex="c = 1 + s\,N_c">c = 1 + s·N_c</text>
+    <path class="ln" d="M335,95 H365" marker-end="url(#ar)"/>
+    <rect class="bx2" x="370" y="45" width="220" height="100" rx="4"/><text x="480" y="68" text-anchor="middle" font-weight="600">flux by integration</text><text x="480" y="88" text-anchor="middle" class="tm" data-tex="J(x) = \iota - \int_0^x c_t\,dx'">J(x) = ι − ∫₀ˣ c_t dx′</text><text x="480" y="106" text-anchor="middle" class="tm">3-pt Gauss on 32 cells</text><text x="480" y="124" text-anchor="middle" class="tm" data-tex="\text{conservation, } J(0) = \iota \text{ exact}">conservation, J(0)=ι exact</text>
+    <path class="ln" d="M595,95 H625" marker-end="url(#ar)"/>
+    <rect class="bx" x="630" y="60" width="140" height="70" rx="4"/><text x="700" y="88" text-anchor="middle" font-weight="600" data-tex="v = (J - q)/c">v = (J − q) / c</text><text x="700" y="108" text-anchor="middle" class="tm" data-tex="q \text{ from } \theta, \text{ as Build 1}">q from θ, as Build 1</text>
+    <path class="ln" d="M775,95 H805" marker-end="url(#ar)"/>
+    <rect class="wm" x="810" y="45" width="140" height="100" rx="4"/><text x="880" y="68" text-anchor="middle" font-weight="600">penalized</text><text x="880" y="88" text-anchor="middle" class="tm" data-tex="r_v = v_x + V q_x">r_v = v_x + V q_x</text><text x="880" y="106" text-anchor="middle" class="tm" data-tex="q(0) = \iota">q(0) = ι</text><text x="880" y="124" text-anchor="middle" class="tm" data-tex="J(1) = \iota">J(1) = ι</text>
+    <text x="10" y="180" class="tm" font-size="12" data-anchor="start" data-tex="\text{Fewer penalties, but dividing by a network } c \text{ is unstable: fits diverge on materials 3, 5 and 7, whose minimum } c \text{ is } 0.04\text{–}0.15.">Fewer penalties, but dividing by a network c is unstable: fits diverge on materials 3, 5 and 7, whose minimum c is 0.04–0.15.</text>
+    <text x="10" y="200" class="tm" font-size="12">Data term as Build 1. Not used for the data-first runs.</text>
+  </g>
+</svg></div>
+
+<h3>Loss</h3>
+<div class="eq">\[
+\begin{aligned}
+\mathcal{L} &= w_\text{data}\,\mathcal{L}_\text{data} + w_\text{pde}\,\mathcal{L}_\text{pde} + w_\text{vol}\,\mathcal{L}_\text{vol} + w_\text{bc}\,\mathcal{L}_\text{bc}\\
+\mathcal{L}_\text{data} &= \frac{\overline{(\bar c_\text{bin} - y)^2}}{\sigma^2} \;\Big[\, + \frac{\overline{(v - v_\text{obs})^2}}{(10^{-3}\,v_\text{scale})^2} \ \ \text{data-first only}\Big], && \sigma = 10^{-3}\,\bar c \ \ (\mathcal{L}_\text{data} = 1 \text{ at } 0.1\,\% \text{ RMS misfit})\\
+\mathcal{L}_\text{pde} &= \frac{\overline{r_c^2}}{s_t^2}, && \text{Build 1 only};\ s_t = \mathrm{RMS}(\partial c/\partial t) \text{ of the data}\\
+\mathcal{L}_\text{vol} &= \frac{\overline{r_v^2}}{(v_\text{scale}\,s_t)^2}, && v_\text{scale} = \max|v| \text{ reconstructed from the data}\\
+\mathcal{L}_\text{bc} &= \frac{\overline{r_\text{wall}^2}}{\overline{\iota^2}}
+\end{aligned}
+\]</div>
+<p class="prose note">Residual points are redrawn every Adam step, \(x \sim \mathcal{U}[0, 1]\) and \(s \sim \mathcal{U}\big[\sqrt{t_0/t_\text{max}},\, 1\big]\), so the window starts at the first observed frame. L-BFGS stages use one fixed set.</p>
+</section>
+
+<section id="schedules">
+<h2>PINN training schedules</h2>
+<p class="prose">Three schedules were tried on the same networks. Bar lengths are drawn to step count within each row, except stage 1 of the data-first schedule, which is compressed (30,000 steps).</p>
+<div class="diagram"><svg viewBox="0 0 960 300">
+  <g font-size="12">
+    <text x="10" y="30" font-weight="600" font-size="13">1 · Total loss</text>
+    <text x="10" y="48" class="tm" data-anchor="start" data-tex="w = 100, \text{ all terms from step } 0">w = 100, all terms from step 0</text>
+    <rect class="ac" x="240" y="16" width="500" height="40" rx="3"/><text x="490" y="34" text-anchor="middle" font-weight="600">joint Adam · 5000 steps</text><text x="490" y="50" text-anchor="middle" class="tm" data-tex="\text{nets} + \phi,\ \text{lr } 10^{-3} \to 10^{-5} \text{ cosine},\ \phi \text{ at } 0.1\times">nets + φ, lr 1e-3 → 1e-5 cosine, φ at 0.1×</text>
+    <text x="755" y="40" class="tm">A 8.7 %, B 29.4 % (B1)</text>
+
+    <text x="10" y="120" font-weight="600" font-size="13">2 · Staged</text>
+    <text x="10" y="138" class="tm" data-anchor="start" data-tex="w = 100 \text{ or } 1">w = 100 or 1</text>
+    <rect class="bx2" x="240" y="106" width="150" height="40" rx="3"/><text x="315" y="124" text-anchor="middle" font-weight="600">fit · 3000</text><text x="315" y="140" text-anchor="middle" class="tm" data-tex="\text{data only, } \theta \text{ frozen}">data only, θ frozen</text>
+    <rect class="bx" x="394" y="106" width="50" height="40" rx="3"/><text x="419" y="124" text-anchor="middle" font-weight="600">1000</text><text x="419" y="140" text-anchor="middle" class="tm" data-tex="\theta\ \text{fz}">θ fz</text>
+    <rect class="ac" x="448" y="106" width="250" height="40" rx="3"/><text x="573" y="124" text-anchor="middle" font-weight="600">joint Adam · 5000</text><text x="573" y="140" text-anchor="middle" class="tm" data-tex="\text{lr } 10^{-4},\ \phi \text{ at } 10\times">lr 1e-4, φ at 10×</text>
+    <rect class="wm" x="702" y="106" width="40" height="40" rx="3"/><text x="722" y="130" text-anchor="middle" font-size="10.5">LBFGS</text>
+    <text x="755" y="122" class="tm">300 L-BFGS iters on total loss</text><text x="755" y="140" class="tm" data-anchor="start" data-tex="\text{A } 13.3\,\%,\ \text{B } 17.3\,\% \ (\text{B1},\ w = 100)">A 13.3 %, B 17.3 % (B1, w100)</text>
+
+    <text x="10" y="210" font-weight="600" font-size="13">3 · Data-first</text>
+    <text x="10" y="228" class="tm" font-size="11" data-anchor="start" data-tex="\text{Build 1},\ w_\text{phys} = 1,\ w_\text{data} = 10^{-2} \ldots 10^{-4}">Build 1, w_phys = 1, w_data 1e-2…1e-4</text>
+    <rect class="bx2" x="240" y="196" width="232" height="40" rx="3"/><text x="356" y="214" text-anchor="middle" font-weight="600" data-tex="\text{fit } c \text{ and } v \cdot 30\text{k Adam} + 3\text{k L-BFGS}">fit c and v · 30k Adam + 3k L-BFGS</text><text x="356" y="230" text-anchor="middle" class="tm" data-tex="\text{data only, } \theta \text{ frozen, cached}">data only, θ frozen, cached</text>
+    <rect class="ac" x="476" y="196" width="250" height="40" rx="3"/><text x="601" y="214" text-anchor="middle" font-weight="600">joint Adam · 5000</text><text x="601" y="230" text-anchor="middle" class="tm" data-tex="\text{lr } 10^{-4},\ \phi \text{ at } 10\times, \text{ no warmup}">lr 1e-4, φ at 10×, no warmup</text>
+    <rect class="wm" x="730" y="196" width="40" height="40" rx="3"/><text x="750" y="220" text-anchor="middle" font-size="10.5">LBFGS</text>
+    <text x="782" y="212" class="tm" data-anchor="start" data-tex="c \text{ misfit } 0.02\,\% \text{ after stage 1}">c misfit 0.02 % after stage 1</text><text x="782" y="230" class="tm" data-anchor="start" data-tex="\text{A } 7.7\,\%,\ \text{B } 11.6\,\%">A 7.7 %, B 11.6 % (w_d 1e-2)</text>
+    <text x="10" y="280" class="tm" font-size="11.5" data-anchor="start" data-tex="\text{Learning rates in the staged and data-first runs decay by cosine to } 1\,\% \text{ over warmup + joint. Fit stage lr } 10^{-3} \text{ with cosine decay to } 1\,\%.">Learning rates in the staged and data-first runs decay by cosine to 1 % over warmup + joint. Fit stage lr 1e-3 with cosine decay to 1 %.</text>
+  </g>
+</svg></div>
+<div class="prose">
+<ul>
+<li><b>Total loss</b> was picked by a 20-variant sweep on one material (<code>results/pinn_sweep</code>). Every variant moved \(D\) away from the truth from input A, and with \(\theta\) held at the truth the loss was no lower than at a wrong \(\theta\).</li>
+<li><b>Staged</b> lowered \(c\) misfit to 0.26–0.40 %, which helped from B with Build 1 (5 of 8 better) and hurt from A. With \(w = 1\) it was worse everywhere.</li>
+<li><b>Data-first</b> fits \(c\) and \(v\) to the data until converged before the physics sees them. A smaller data weight in stage 2 lets \(c\) drift from the data (0.07 → 0.24 % misfit) without improving \(D\).</li>
+<li><b>Frozen networks</b> (after the same data-first stage 1) skip the joint network update: either only \(\theta\) trains, or \(v\) and \(\theta\) train with \(c\) fixed. The \(c\) misfit stays at 0.02 %, but \(D\) ends at 16.0 / 16.7 % (\(\theta\) only) and 13.2 / 15.8 % (\(c\) fixed) from A / B.</li>
+</ul>
+</div>
+</section>
+
+<section id="next">
+<h2>Still to do</h2>
+<div class="tbl"><table style="min-width:560px">
+<thead><tr><th>Item</th><th>Status</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>Hessian identifiability per run condition</td><td><span class="pill p-todo">to do</span></td><td>Next step. L-BFGS through the solver gives the Hessian at the exact fit.</td></tr>
+<tr><td>Multi-current round (1 vs 3 currents)</td><td><span class="pill p-todo">to do</span></td><td>All results above use 3 currents per material. Open question whether the benchmark should use 1.</td></tr>
+<tr><td>Noise round</td><td><span class="pill p-todo">to do</span></td><td>All results above are noise-free.</td></tr>
+<tr><td>PINN accuracy</td><td><span class="pill p-part">partial</span></td><td>Would need about 0.01 % \(c\) misfit with physics on. Data-first run has no figure yet.</td></tr>
+<tr><td>Repo housekeeping</td><td><span class="pill p-todo">to do</span></td><td>README folder names (<code>results/stage2</code> is <code>vanilla pinn</code>, <code>baselines</code> is <code>numerical baselines</code>); rename <code>vanilla pinn</code>, since it holds MLP/FNO + TTT.</td></tr>
+</tbody></table></div>
+</section>
+</div>
+
+<script id="pagedata" type="application/json">{"runs":[{"g":"Learned (amortized)","m":"MLP, supervised","i":"data only","a":"data","k":"steps","s8":{"n":8,"Ds":null,"De":6.027205514971137,"te":0.06388642027279517,"better":null,"mis":null,"wall":6.7699866667680904e-06,"evals":null,"steps":null},"sall":{"n":300,"Ds":null,"De":9.041742614767426,"te":0.052945966438632946,"better":null,"mis":null,"wall":6.7699866667680904e-06,"evals":null,"steps":null}},{"g":"Learned (amortized)","m":"MLP + TTT","i":"data only","a":"data","k":"steps","s8":{"n":8,"Ds":6.027205514971137,"De":7.498257193800995,"te":0.037197435734051695,"better":5,"mis":null,"wall":0.23815452099666723,"evals":150.0,"steps":150},"sall":{"n":300,"Ds":9.041742614767426,"De":6.547858278172322,"te":0.036904492700144995,"better":229,"mis":null,"wall":0.23815452099666723,"evals":150.0,"steps":150}},{"g":"Learned (amortized)","m":"FNO, supervised","i":"data only","a":"data","k":"steps","s8":{"n":8,"Ds":null,"De":7.615671042019127,"te":0.05415386119319049,"better":null,"mis":null,"wall":0.0001563120433331733,"evals":null,"steps":null},"sall":{"n":300,"Ds":null,"De":8.518690826116256,"te":0.04491071407401266,"better":null,"mis":null,"wall":0.0001563120433331733,"evals":null,"steps":null}},{"g":"Learned (amortized)","m":"FNO + TTT","i":"data only","a":"data","k":"steps","s8":{"n":8,"Ds":7.615671042019127,"De":5.686589409875683,"te":0.03270598948927858,"better":8,"mis":null,"wall":0.7074696879866671,"evals":150.0,"steps":150},"sall":{"n":300,"Ds":8.518690826116256,"De":5.535880497860763,"te":0.03161987898122737,"better":245,"mis":null,"wall":0.7074696879866671,"evals":150.0,"steps":150}},{"g":"Gradient (differentiable solver)","m":"L-BFGS-B","i":"A \u00b7 MLP","a":"A \u00b7 MLP","k":"calls","s8":{"n":8,"Ds":6.027205514971137,"De":1.834740868351946e-07,"te":1.0962442485043322e-09,"better":8,"mis":7.736630181408029e-12,"wall":3.323884931500288,"evals":78.5,"steps":null},"sall":{"n":300,"Ds":9.041742614767426,"De":1.0837500735160587e-07,"te":5.526918822670304e-10,"better":300,"mis":5.776278322997205e-12,"wall":3.498364840500244,"evals":80.0,"steps":null}},{"g":"Gradient (differentiable solver)","m":"L-BFGS-B","i":"A \u00b7 MLP+TTT","a":"A \u00b7 MLP+TTT","k":"calls","s8":{"n":8,"Ds":7.498257193800995,"De":1.2413459540465951e-07,"te":6.010506588119018e-10,"better":8,"mis":6.030603612188294e-12,"wall":3.0202369005000946,"evals":74.5,"steps":null},"sall":{"n":300,"Ds":6.547858278172328,"De":1.1616475723242907e-07,"te":6.023022528776993e-10,"better":300,"mis":5.14071973512574e-12,"wall":3.427448563500093,"evals":78.0,"steps":null}},{"g":"Gradient (differentiable solver)","m":"L-BFGS-B","i":"A \u00b7 FNO","a":"A \u00b7 FNO","k":"calls","s8":{"n":8,"Ds":7.615671042019127,"De":7.301178721060193e-08,"te":3.4598932554858924e-10,"better":8,"mis":2.817188210714196e-12,"wall":3.2760475355000835,"evals":76.0,"steps":null},"sall":{"n":300,"Ds":8.518690826116256,"De":9.952222260807171e-08,"te":4.995412310039072e-10,"better":300,"mis":4.417310104217158e-12,"wall":3.1826983304999885,"evals":79.0,"steps":null}},{"g":"Gradient (differentiable solver)","m":"L-BFGS-B","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"calls","s8":{"n":8,"Ds":5.686589409875685,"De":3.9263407491438106e-08,"te":2.1392951095093753e-10,"better":8,"mis":2.227443166715551e-12,"wall":3.1826500940001097,"evals":78.5,"steps":null},"sall":{"n":300,"Ds":5.535880497860758,"De":1.1003664190098319e-07,"te":5.65182671237114e-10,"better":300,"mis":4.9836647816957105e-12,"wall":3.0655065490000197,"evals":77.0,"steps":null}},{"g":"Gradient (differentiable solver)","m":"L-BFGS-B","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"calls","s8":{"n":8,"Ds":31.831051914417458,"De":8.27295497302554e-08,"te":5.952198211528269e-10,"better":8,"mis":4.603668327849316e-12,"wall":3.213111066500005,"evals":74.5,"steps":null},"sall":{"n":300,"Ds":38.87595993217698,"De":1.0565070390011476e-07,"te":5.253417729282634e-10,"better":300,"mis":4.268664546012897e-12,"wall":3.4285154775000137,"evals":82.5,"steps":null}},{"g":"Gradient-free (solver)","m":"Nelder\u2013Mead","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"calls","s8":{"n":8,"Ds":5.686589409875685,"De":3.8946117064222294,"te":0.017262795450093175,"better":7,"mis":9.897949386139738e-05,"wall":13.41602370000328,"evals":658.0,"steps":null},"sall":{"n":300,"Ds":5.535880497860758,"De":3.3928763866667975,"te":0.018016930525336206,"better":243,"mis":9.911840607687061e-05,"wall":10.227252800017595,"evals":588.0,"steps":null}},{"g":"Gradient-free (solver)","m":"Nelder\u2013Mead","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"calls","s8":{"n":8,"Ds":31.831051914417458,"De":3.561086653722061,"te":0.016153750106087467,"better":8,"mis":9.963030445237436e-05,"wall":12.347984300024109,"evals":831.0,"steps":null},"sall":{"n":300,"Ds":38.87595993217698,"De":3.5979132721965668,"te":0.01814665482117819,"better":298,"mis":9.869675917425485e-05,"wall":13.04283440002473,"evals":861.5,"steps":null}},{"g":"Gradient-free (solver)","m":"CMA-ES","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"calls","s8":{"n":8,"Ds":5.686589409875685,"De":4.212624047594347,"te":0.027542418518307014,"better":5,"mis":9.571221695026992e-05,"wall":25.62039385002572,"evals":1592.0,"steps":null},"sall":{"n":300,"Ds":5.535880497860758,"De":4.399456570797669,"te":0.02273263833998316,"better":166,"mis":9.878784004772152e-05,"wall":26.023216999979923,"evals":1694.5,"steps":null}},{"g":"Gradient-free (solver)","m":"CMA-ES","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"calls","s8":{"n":8,"Ds":31.831051914417458,"De":3.356975989390186,"te":0.017825385325969,"better":8,"mis":9.747931919757181e-05,"wall":25.27255465000053,"evals":1605.5,"steps":null},"sall":{"n":300,"Ds":38.87595993217698,"De":4.120349253070099,"te":0.023340651095977202,"better":293,"mis":9.926536461784723e-05,"wall":28.14662360001239,"evals":1865.0,"steps":null}},{"g":"Gradient-free (solver)","m":"BO, 150 evals","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"calls","s8":{"n":8,"Ds":5.686589409875685,"De":5.686589409875685,"te":0.03270598948927859,"better":0,"mis":0.0016640639837671727,"wall":87.10771810001461,"evals":150.0,"steps":null},"sall":{"n":30,"Ds":5.495601994964478,"De":5.495601994964478,"te":0.028041509478931463,"better":0,"mis":0.0015276770188585517,"wall":84.08078084999579,"evals":150.0,"steps":null}},{"g":"Gradient-free (solver)","m":"BO, 150 evals","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"calls","s8":{"n":8,"Ds":31.831051914417458,"De":26.54011645136039,"te":0.11848505129527993,"better":4,"mis":0.005495266951895825,"wall":87.22466290000011,"evals":150.0,"steps":null},"sall":{"n":30,"Ds":40.981224850415714,"De":29.471872707956674,"te":0.1179590465039348,"better":18,"mis":0.007002640297069096,"wall":85.04872925000382,"evals":150.0,"steps":null}},{"g":"PINN (per-material network fit)","m":"PINN total loss, JAX CPU \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":9.391061235165845,"te":0.031501444624577976,"better":0,"mis":0.005118468295125707,"wall":6002.572380500002,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":5.686589409875685,"De":9.391061235165845,"te":0.031501444624577976,"better":0,"mis":0.005118468295125707,"wall":6002.572380500002,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, JAX CPU \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":28.965859922600814,"te":0.18357357121492557,"better":5,"mis":0.005611381399193281,"wall":6004.66204315002,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":31.831051914417458,"De":28.965859922600814,"te":0.18357357121492557,"better":5,"mis":0.005611381399193281,"wall":6004.66204315002,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, JAX CPU \u00b7 Build 2","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":9.406619537768663,"te":0.027767983432185363,"better":0,"mis":0.005702271783963613,"wall":5856.415214899986,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":5.686589409875685,"De":9.406619537768663,"te":0.027767983432185363,"better":0,"mis":0.005702271783963613,"wall":5856.415214899986,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, JAX CPU \u00b7 Build 2","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":29.218169732106155,"te":0.1870448835766725,"better":5,"mis":0.007587683414079212,"wall":5860.526230349991,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":31.831051914417458,"De":29.218169732106155,"te":0.1870448835766725,"better":5,"mis":0.007587683414079212,"wall":5860.526230349991,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, GPU \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":8.681863700093475,"te":0.03642746213505685,"better":0,"mis":0.004875381307055962,"wall":49.82228251875131,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":5.686589409875685,"De":8.681863700093475,"te":0.03642746213505685,"better":0,"mis":0.004875381307055962,"wall":49.82228251875131,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, GPU \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":29.393297812574538,"te":0.18434666886295992,"better":4,"mis":0.005077417421019184,"wall":49.82228251875131,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":31.831051914417458,"De":29.393297812574538,"te":0.18434666886295992,"better":4,"mis":0.005077417421019184,"wall":49.82228251875131,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, GPU \u00b7 Build 2","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":10.636490523092094,"te":0.030512754182879364,"better":0,"mis":0.00572464080602279,"wall":32.93531844999961,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":5.686589409875685,"De":10.636490523092094,"te":0.030512754182879364,"better":0,"mis":0.00572464080602279,"wall":32.93531844999961,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN total loss, GPU \u00b7 Build 2","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":28.277271212533577,"te":0.1862170834351049,"better":5,"mis":0.007568952305294126,"wall":32.93531844999961,"evals":null,"steps":5000.0},"sall":{"n":8,"Ds":31.831051914417458,"De":28.277271212533577,"te":0.1862170834351049,"better":5,"mis":0.007568952305294126,"wall":32.93531844999961,"evals":null,"steps":5000.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=100\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":13.296071762769536,"te":0.1409482285650781,"better":0,"mis":0.002645693065489805,"wall":151.56635372500023,"evals":9738.0,"steps":9300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":13.296071762769536,"te":0.1409482285650781,"better":0,"mis":0.002645693065489805,"wall":151.56635372500023,"evals":9738.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=100\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":17.296208228755155,"te":0.17159792233034288,"better":5,"mis":0.0027299948954223156,"wall":151.56635372500023,"evals":9738.0,"steps":9300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":17.296208228755155,"te":0.17159792233034288,"better":5,"mis":0.0027299948954223156,"wall":151.56635372500023,"evals":9738.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=100\\) \u00b7 Build 2","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":19.71480695532381,"te":0.07118531245396545,"better":0,"mis":0.0037873534244530884,"wall":139.08319325625052,"evals":11800.0,"steps":9300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":19.71480695532381,"te":0.07118531245396545,"better":0,"mis":0.0037873534244530884,"wall":139.08319325625052,"evals":11800.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=100\\) \u00b7 Build 2","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":33.64180549807257,"te":0.13747433902024336,"better":3,"mis":0.003978805758134074,"wall":139.08319325625052,"evals":11800.0,"steps":9300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":33.64180549807257,"te":0.13747433902024336,"better":3,"mis":0.003978805758134074,"wall":139.08319325625052,"evals":11800.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=1\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":27.9016522674662,"te":0.18477813152360234,"better":0,"mis":0.0026624027861496145,"wall":138.2672799062493,"evals":9717.0,"steps":9300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":27.9016522674662,"te":0.18477813152360234,"better":0,"mis":0.0026624027861496145,"wall":138.2672799062493,"evals":9717.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=1\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":35.73943235671018,"te":0.22677313176126318,"better":2,"mis":0.0025960175960503774,"wall":138.2672799062493,"evals":9717.0,"steps":9300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":35.73943235671018,"te":0.22677313176126318,"better":2,"mis":0.0025960175960503774,"wall":138.2672799062493,"evals":9717.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=1\\) \u00b7 Build 2","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":25.691003165707777,"te":0.12864993381452422,"better":0,"mis":0.0028701875899144478,"wall":119.48508162500002,"evals":10752.0,"steps":9300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":25.691003165707777,"te":0.12864993381452422,"better":0,"mis":0.0028701875899144478,"wall":119.48508162500002,"evals":10752.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN staged, \\(w=1\\) \u00b7 Build 2","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":35.76436598008749,"te":0.1759285731251705,"better":3,"mis":0.002855925256125817,"wall":119.48508162500002,"evals":10752.0,"steps":9300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":35.76436598008749,"te":0.1759285731251705,"better":3,"mis":0.002855925256125817,"wall":119.48508162500002,"evals":10752.0,"steps":9300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-2}\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":7.683203211341148,"te":0.026665787132670843,"better":3,"mis":0.0007046353151599986,"wall":124.93779993124917,"evals":95627.0,"steps":38300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":7.683203211341148,"te":0.026665787132670843,"better":3,"mis":0.0007046353151599986,"wall":124.93779993124917,"evals":95627.0,"steps":38300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-2}\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":11.5988341160465,"te":0.06080986442264441,"better":7,"mis":0.000890720015946147,"wall":124.93779993124917,"evals":95627.0,"steps":38300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":11.5988341160465,"te":0.06080986442264441,"better":7,"mis":0.000890720015946147,"wall":124.93779993124917,"evals":95627.0,"steps":38300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-3}\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":7.294583717689697,"te":0.0297777172614693,"better":3,"mis":0.0013671807342929862,"wall":75.7149163062495,"evals":5635.0,"steps":5300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":7.294583717689697,"te":0.0297777172614693,"better":3,"mis":0.0013671807342929862,"wall":75.7149163062495,"evals":5635.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-3}\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":13.898688854952049,"te":0.047836769183926243,"better":7,"mis":0.0018782362684315415,"wall":75.7149163062495,"evals":5635.0,"steps":5300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":13.898688854952049,"te":0.047836769183926243,"better":7,"mis":0.0018782362684315415,"wall":75.7149163062495,"evals":5635.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-4}\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":8.854161500422741,"te":0.034370452533192694,"better":2,"mis":0.0023819160897120004,"wall":121.04432680625177,"evals":8942.0,"steps":5300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":8.854161500422741,"te":0.034370452533192694,"better":2,"mis":0.0023819160897120004,"wall":121.04432680625177,"evals":8942.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN data-first, \\(w_\\text{data}=10^{-4}\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":17.166634371241056,"te":0.0607632240525966,"better":7,"mis":0.0033472178523268835,"wall":121.04432680625177,"evals":8942.0,"steps":5300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":17.166634371241056,"te":0.0607632240525966,"better":7,"mis":0.0033472178523268835,"wall":121.04432680625177,"evals":8942.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN frozen c,v (\\(\\theta\\) only) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":15.999330605623982,"te":0.1549142866840046,"better":0,"mis":0.00019921214165010277,"wall":138.36221820624996,"evals":10246.0,"steps":5300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":15.999330605623982,"te":0.1549142866840046,"better":0,"mis":0.00019921214165010277,"wall":138.36221820624996,"evals":10246.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN frozen c,v (\\(\\theta\\) only) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":16.680541967459064,"te":0.15034431184976665,"better":6,"mis":0.00019921214165010277,"wall":138.36221820624996,"evals":10246.0,"steps":5300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":16.680541967459064,"te":0.15034431184976665,"better":6,"mis":0.00019921214165010277,"wall":138.36221820624996,"evals":10246.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN frozen c (v, \\(\\theta\\) trained), \\(w_\\text{data}=10^{-2}\\) \u00b7 Build 1","i":"A \u00b7 FNO+TTT","a":"A \u00b7 FNO+TTT","k":"steps","s8":{"n":8,"Ds":5.686589409875685,"De":13.226360178447138,"te":0.09458805547978502,"better":0,"mis":0.00019921214165010277,"wall":74.68343629375158,"evals":5722.0,"steps":5300.0},"sall":{"n":8,"Ds":5.686589409875685,"De":13.226360178447138,"te":0.09458805547978502,"better":0,"mis":0.00019921214165010277,"wall":74.68343629375158,"evals":5722.0,"steps":5300.0}},{"g":"PINN (per-material network fit)","m":"PINN frozen c (v, \\(\\theta\\) trained), \\(w_\\text{data}=10^{-2}\\) \u00b7 Build 1","i":"B \u00b7 \\(\\theta=0.5\\)","a":"B \u00b7 center","k":"steps","s8":{"n":8,"Ds":31.831051914417458,"De":15.825824560189098,"te":0.10058771339759777,"better":8,"mis":0.00019921214165010277,"wall":74.68343629375158,"evals":5722.0,"steps":5300.0},"sall":{"n":8,"Ds":31.831051914417458,"De":15.825824560189098,"te":0.10058771339759777,"better":8,"mis":0.00019921214165010277,"wall":74.68343629375158,"evals":5722.0,"steps":5300.0}}],"sweep":[{"build":"2 (c)","start":"A","mult":"0.1","w":"100","win":"early","Ds":8.856064572387186,"De":12.890913707018317,"te":0.06288408803011428,"mis":0.006366446716388717,"wall":3649.212300700019},{"build":"2 (c)","start":"A","mult":"0.1","w":"100","win":"observed","Ds":8.856064572387186,"De":10.667210832713426,"te":0.05023338208732775,"mis":0.00456011663360611,"wall":3641.7157236000057},{"build":"2 (c)","start":"A","mult":"0.1","w":"1","win":"early","Ds":8.856064572387186,"De":14.103804494971278,"te":0.0675579722624066,"mis":0.004722805006181204,"wall":3639.7355580999865},{"build":"2 (c)","start":"A","mult":"0.1","w":"1","win":"observed","Ds":8.856064572387186,"De":14.081752630488545,"te":0.06313515703962308,"mis":0.004686107099132176,"wall":3646.3606663000537},{"build":"2 (c)","start":"A","mult":"1","w":"100","win":"early","Ds":8.856064572387186,"De":21.02642151370016,"te":0.07292383100720483,"mis":0.008838746827261094,"wall":3634.8561822000192},{"build":"2 (c)","start":"A","mult":"1","w":"100","win":"observed","Ds":8.856064572387186,"De":15.17310042685901,"te":0.08689960922705696,"mis":0.004452111767807803,"wall":3652.653106599988},{"build":"2 (c)","start":"A","mult":"1","w":"1","win":"early","Ds":8.856064572387186,"De":29.124679123635666,"te":0.2711123798700238,"mis":0.004715821635732316,"wall":3639.0236283999984},{"build":"2 (c)","start":"A","mult":"1","w":"1","win":"observed","Ds":8.856064572387186,"De":30.087232224812343,"te":0.25234493938404556,"mis":0.004808771037667496,"wall":3624.4640237999847},{"build":"2 (c)","start":"truth","mult":null,"w":"100","win":"observed","Ds":0.0,"De":1.4823635623688763e-14,"te":0.0,"mis":0.00431797197387099,"wall":3627.1880268999957},{"build":"2 (c)","start":"truth","mult":null,"w":"1","win":"observed","Ds":0.0,"De":1.4823635623688763e-14,"te":0.0,"mis":0.0047058596437036596,"wall":3644.870206899999},{"build":"1 (c, v)","start":"A","mult":"0.1","w":"100","win":"early","Ds":8.856064572387186,"De":11.92343184449872,"te":0.0827346022247986,"mis":0.005058610416649701,"wall":3645.6279868999845},{"build":"1 (c, v)","start":"A","mult":"0.1","w":"100","win":"observed","Ds":8.856064572387186,"De":11.861513061848804,"te":0.0700305093695742,"mis":0.004537613397223807,"wall":3647.720558699977},{"build":"1 (c, v)","start":"A","mult":"0.1","w":"1","win":"early","Ds":8.856064572387186,"De":13.839364765415338,"te":0.086127620439315,"mis":0.004892406762450834,"wall":3653.264566000027},{"build":"1 (c, v)","start":"A","mult":"0.1","w":"1","win":"observed","Ds":8.856064572387186,"De":14.164500502386973,"te":0.07655737169952362,"mis":0.00492680821302828,"wall":3650.6120713999844},{"build":"1 (c, v)","start":"A","mult":"1","w":"100","win":"early","Ds":8.856064572387186,"De":16.629112781429402,"te":0.2787427265919204,"mis":0.005182957369989335,"wall":3650.6852911000024},{"build":"1 (c, v)","start":"A","mult":"1","w":"100","win":"observed","Ds":8.856064572387186,"De":20.42278380424222,"te":0.2343585510545504,"mis":0.004617466478138183,"wall":3652.648247600009},{"build":"1 (c, v)","start":"A","mult":"1","w":"1","win":"early","Ds":8.856064572387186,"De":29.16405770841229,"te":0.35218880160216653,"mis":0.004892281421183902,"wall":3654.0000918000005},{"build":"1 (c, v)","start":"A","mult":"1","w":"1","win":"observed","Ds":8.856064572387186,"De":30.618404659067206,"te":0.3106316353760991,"mis":0.010035976051562012,"wall":3654.4572277999832},{"build":"1 (c, v)","start":"truth","mult":null,"w":"100","win":"observed","Ds":0.0,"De":1.4823635623688763e-14,"te":0.0,"mis":0.004487686527997498,"wall":3648.679540399986},{"build":"1 (c, v)","start":"truth","mult":null,"w":"1","win":"observed","Ds":0.0,"De":1.4823635623688763e-14,"te":0.0,"mis":0.006144663989381421,"wall":3649.343496799993}],"compact":[{"target":"1 %","method":"Nelder\u2013Mead","reached":5,"n":5,"evals":55.0,"wall":1.891856599999997,"tot":55.0,"mseD":0.28599810005328524,"mset":0.02226905004582977},{"target":"1 %","method":"CMA-ES","reached":5,"n":5,"evals":22.0,"wall":0.720439374999998,"tot":22.0,"mseD":0.1389977190862762,"mset":0.04031536521129931},{"target":"1 %","method":"BO","reached":5,"n":5,"evals":24.0,"wall":1.750494205999999,"tot":24.0,"mseD":0.11846339903353587,"mset":0.05611603396775847},{"target":"0.1 %","method":"Nelder\u2013Mead","reached":5,"n":5,"evals":297.0,"wall":9.486975182000009,"tot":297.0,"mseD":0.029782907384515715,"mset":0.022654020420807153},{"target":"0.1 %","method":"CMA-ES","reached":5,"n":5,"evals":419.0,"wall":14.421073923999984,"tot":419.0,"mseD":0.014193018137591652,"mset":0.004016103266910035},{"target":"0.1 %","method":"BO","reached":0,"n":5,"evals":null,"wall":null,"tot":400.0,"mseD":0.013347022714226093,"mset":0.002346923345635112},{"target":"0.01 %","method":"Nelder\u2013Mead","reached":4,"n":5,"evals":783.5,"wall":41.46886710550004,"tot":788.0,"mseD":0.0032480640814756168,"mset":0.002362162947829083},{"target":"0.01 %","method":"CMA-ES","reached":4,"n":5,"evals":1367.5,"wall":71.73363863449995,"tot":1409.0,"mseD":0.0027170720954810103,"mset":0.002193125151254762},{"target":"0.01 %","method":"BO","reached":0,"n":5,"evals":null,"wall":null,"tot":383.0,"mseD":0.013347022714226093,"mset":0.002346923345635112}]}</script>
+<script>
+(function(){
+  const D=JSON.parse(document.getElementById("pagedata").textContent);
+  const NS="http://www.w3.org/2000/svg";
+  const sci=(x,d=1)=>{ if(x===0) return "0"; let e=Math.floor(Math.log10(Math.abs(x))), ms=(x/10**e).toFixed(d); if(Math.abs(parseFloat(ms))>=10){ e+=1; ms=(x/10**e).toFixed(d); }
+    return ms==="1"||ms==="1.0" ? `\\(10^{${e}}\\)` : `\\(${ms}\\times10^{${e}}\\)`; };
+  const pct=x=> x==null?"–": x===0?"0.0 %": (x<0.05 && x>0 ? sci(x,0)+" %" : x.toFixed(1)+" %");
+  const num=(x,d=3)=> x==null?"–": (Math.abs(x)<1e-3 && x!==0 ? sci(x,1) : x.toFixed(d));
+  const wall=x=> x==null?"–": (x<0.01 ? sci(x,1)+" s" : x<10 ? x.toFixed(2)+" s" : x<1000 ? Math.round(x)+" s" : Math.round(x).toLocaleString("en-US")+" s");
+  const its=x=> x==null?"–": Math.round(x).toLocaleString("en-US");
+  const tbody=document.querySelector("#unified tbody");
+  function render(key){
+    let html="", last="";
+    const best={};
+    D.runs.forEach(r=>{const s=r[key]; if(!s) return; if(!(r.g in best) || s.De<best[r.g]) best[r.g]=s.De;});
+    D.runs.forEach(r=>{
+      const s=r[key]; if(!s) return;
+      if(r.g!==last){ html+=`<tr class="grp"><td colspan="10">${r.g}</td></tr>`; last=r.g; }
+      const isBest=s.De===best[r.g];
+      const better=s.better==null?"–":`${s.better}/${s.n}`;
+      const calls=r.k==="calls" ? (s.evals==null?"–":its(s.evals)+" calls") : (s.steps==null?"–":its(s.steps)+" steps");
+      html+=`<tr${isBest?' class="best"':""}><td>${r.m}</td><td>${r.i}</td><td class="n">${s.n}</td><td class="n">${pct(s.Ds)}</td><td class="n">${pct(s.De)}</td><td class="n">${better}</td><td class="n">${num(s.te)}</td><td class="n">${s.mis==null?"–":sci(s.mis,1)}</td><td class="n">${calls}</td><td class="n">${wall(s.wall)}</td></tr>`;
+    });
+    tbody.innerHTML=html;
+    if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([tbody]);
+  }
+  render("s8");
+  const b8=document.getElementById("set8"), ba=document.getElementById("setall");
+  [[b8,"s8"],[ba,"sall"]].forEach(([b,k])=>b.addEventListener("click",()=>{
+    [b8,ba].forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",String(x===b));}); render(k);}));
+
+  /* sweep + compact tables */
+  document.querySelector("#sweep tbody").innerHTML=D.sweep.map(r=>`<tr><td>${r.build}</td><td>${r.start}</td><td class="n">${r.mult==null?"–":r.mult+"×"}</td><td class="n">${r.w}</td><td>${r.win}</td><td class="n">${pct(r.Ds)} → ${pct(r.De)}</td><td class="n">${num(r.te)}</td><td class="n">${sci(r.mis,1)}</td><td class="n">${wall(r.wall)}</td></tr>`).join("");
+  document.querySelector("#compact tbody").innerHTML=D.compact.map(r=>`<tr><td>${r.target}</td><td>${r.method}</td><td class="n">${r.reached}/${r.n}</td><td class="n">${r.evals==null?"–":its(r.evals)}</td><td class="n">${r.wall==null?"–":wall(r.wall)}</td><td class="n">${num(r.mseD,4)}</td><td class="n">${num(r.mset,4)}</td></tr>`).join("");
+
+  /* start-to-end charts */
+  function el(t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;}
+  const toTex=s=>s.split(/\\\(|\\\)/).map((p,i)=> i%2 ? p : (p ? `\\text{${p}}` : "")).join(" ");
+  const plain=s=>s.replace(/\\\(|\\\)/g,"").replace(/\\text\{([^}]*)\}/g,"$1").replace(/\\theta/g,"θ").replace(/_\\text\{?data\}?/g,"_data").replace(/\^\{(-?\d+)\}/g,"^$1");
+  function chart(id, input, title, titleTex){
+    const rows=D.runs.filter(r=>r.a===input && r.s8 && r.s8.Ds!=null).map(r=>({m:r.m,s:r.s8.Ds,e:r.s8.De})).sort((p,q)=>p.e-q.e);
+    const svg=document.getElementById(id), x0=340, x1=900, xMax=40, rowH=24, top=46, H=top+rows.length*rowH+28;
+    svg.setAttribute("viewBox",`0 0 960 ${H}`);
+    const sx=v=>x0+v/xMax*(x1-x0);
+    svg.appendChild(el("text",{x:0,y:18,"font-weight":"600","font-size":"13","data-tex":titleTex,"data-anchor":"start"},title));
+    [0,10,20,30,40].forEach(t=>{svg.appendChild(el("line",{x1:sx(t),x2:sx(t),y1:top-10,y2:top+rows.length*rowH-12,class:"grid"}));
+      svg.appendChild(el("text",{x:sx(t),y:top+rows.length*rowH+4,"text-anchor":"middle","font-size":"11",class:"tm mono","data-tex":t+"\\,\\%"},t+" %"));});
+    rows.forEach((r,i)=>{
+      const y=top+i*rowH, g=el("g",{});
+      g.appendChild(el("title",{},`${plain(r.m)}: ${r.s.toFixed(1)} % → ${r.e.toFixed(1)} %`));
+      g.appendChild(el("rect",{x:0,y:y-11,width:960,height:rowH-2,fill:"transparent"}));
+      const lab={x:0,y:y+4,"font-size":"12"}; if(r.m.includes("\\(")){lab["data-tex"]=toTex(r.m);lab["data-anchor"]="start";}
+      g.appendChild(el("text",lab,plain(r.m)));
+      g.appendChild(el("line",{x1:sx(r.s),x2:sx(Math.min(r.e,xMax)),y1:y,y2:y,class:"ln"}));
+      g.appendChild(el("circle",{cx:sx(r.s),cy:y,r:5,fill:"var(--panel)",stroke:"var(--muted)","stroke-width":2}));
+      g.appendChild(el("circle",{cx:sx(Math.min(r.e,xMax)),cy:y,r:5.5,fill:r.e<r.s?"var(--accent)":"var(--bad)",stroke:"var(--panel)","stroke-width":2}));
+      const right=r.e>=r.s, lx=right?sx(r.e)+10:sx(r.e)-10;
+      g.appendChild(el("text",{x:lx,y:y+4,"font-size":"11","text-anchor":right?"start":"end",class:"mono"},r.e<0.05?"0.0":r.e.toFixed(1)));
+      svg.appendChild(g);
+    });
+  }
+  chart("dumbA","A · FNO+TTT","Input A · FNO + TTT start","\\text{Input A · FNO + TTT start}");
+  chart("dumbB","B · center","Input B · θ = 0.5","\\text{Input B · } \\theta = 0.5");
+})();
+
+/* Typeset every SVG <text data-tex="..."> in place: \text{...} parts stay in the page font, the rest goes through MathJax.
+   The plain text stays as the fallback if MathJax does not load. */
+window.renderSvgMath = function(){
+  if(!window.MathJax || !MathJax.tex2svg) return;
+  const NS="http://www.w3.org/2000/svg";
+  const run = () => document.querySelectorAll("svg text[data-tex]").forEach(t=>{
+    try{
+      const src=t.getAttribute("data-tex"), parts=[];
+      let last=0;
+      const pushMath=m=>{
+        const lead=/^(\s|\\[ ,;:!])+/.exec(m), trail=/(\s|\\[ ,;:!])+$/.exec(m);
+        const core=m.replace(/^(\s|\\[ ,;:!])+/,"").replace(/(\s|\\[ ,;:!])+$/,"");
+        if(lead) parts.push(["t"," "]);
+        if(core) parts.push(["m",core]);
+        if(trail && core) parts.push(["t"," "]);
+      };
+      // split on \text{...} only at brace depth 0 and not as a sub/superscript argument
+      for(let i=0, depth=0; i<src.length; i++){
+        const ch=src[i];
+        if(ch==="{") depth++; else if(ch==="}") depth--;
+        else if(depth===0 && src.startsWith("\\text{",i) && !/[_^]\s*$/.test(src.slice(0,i))){
+          let j=i+6, d=1; while(j<src.length && d>0){ if(src[j]==="{") d++; else if(src[j]==="}") d--; j++; }
+          pushMath(src.slice(last,i)); parts.push(["t",src.slice(i+6,j-1).replace(/\\_/g,"_")]); last=j; i=j-1;
+        }
+      }
+      pushMath(src.slice(last));
+      const fs=parseFloat(t.getAttribute("font-size")||getComputedStyle(t).fontSize)||12.5, ex=fs*0.5;
+      const x=parseFloat(t.getAttribute("x")), y=parseFloat(t.getAttribute("y"));
+      const anchor=t.getAttribute("data-anchor")||t.getAttribute("text-anchor")||"start";
+      const col=t.getAttribute("data-color") || (t.classList.contains("tm") ? "var(--muted)" : "var(--fg)");
+      const g=document.createElementNS(NS,"g"); t.parentNode.insertBefore(g,t);
+      let cx=0;
+      parts.forEach(([k,v])=>{
+        if(k==="t"){
+          const tt=document.createElementNS(NS,"text");
+          ["class","font-size","font-weight","style"].forEach(a=>{ if(t.hasAttribute(a)) tt.setAttribute(a,t.getAttribute(a)); });
+          tt.setAttribute("x",cx); tt.setAttribute("y",y); tt.setAttribute("xml:space","preserve"); tt.style.whiteSpace="pre";
+          tt.textContent=v; g.appendChild(tt); cx+=tt.getComputedTextLength();
+        } else {
+          const m=MathJax.tex2svg(v,{display:false,em:fs,ex:ex}).querySelector("svg");
+          const w=parseFloat(m.getAttribute("width"))*ex, h=parseFloat(m.getAttribute("height"))*ex;
+          const va=parseFloat((m.getAttribute("style")||"").replace(/.*vertical-align:\s*([-\d.]+)ex.*/,"$1"))||0;
+          m.setAttribute("x",cx); m.setAttribute("y",y-h-va*ex); m.setAttribute("width",w); m.setAttribute("height",h);
+          m.removeAttribute("style"); m.style.color=col; m.style.overflow="visible";
+          g.appendChild(m); cx+=w;
+        }
+      });
+      const x1= anchor==="middle" ? x-cx/2 : anchor==="end" ? x-cx : x;
+      g.setAttribute("transform",`translate(${x1},0)`);
+      t.remove();
+    }catch(e){ /* keep the plain-text label */ }
+  });
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(run);
+};
+</script>
