@@ -27,6 +27,11 @@ small data weight:
   2 joint   total loss = w_data (L_data + L_vdata) + w_pde L_pde + w_vol L_vol + w_bc L_bc, theta free.
             --freeze c,v holds the stage-1 networks fixed, so stage 2 fits only theta (D and t+) to the physics
             of the data-fitted fields; --freeze c holds only the c network.
+Native-grid data (--data fine): the same test materials re-simulated by solver/dataset_fine.py and kept on the
+generator's own grid (40 cells at 104 times, data/fine_test.npz) instead of 20 bins at 13 frames; the data loss
+compares cell averages of the c network there and v is reconstructed from c on that grid.  Everything else is
+unchanged, so the runs compare directly with the 13 x 20 ones:
+    python -m pinn.prefit_sweep --out results/pinn_fine --name wd1e-2 --w-data 1e-2 --extra="--data fine"
 Every (start, material) pair is one independent fit; all of them are stacked along a leading batch axis and
 trained together with torch.func.vmap (the loss is the sum of the per-fit losses and Adam is elementwise, so the
 fits do not interact).  Results go to <out>/<A_|B_><start>/<build>/m<k>.json in the format of jax_pinn.py, so
@@ -47,10 +52,50 @@ from torch.func import grad, grad_and_value, vmap
 from pinn.material import material
 from solver.dataset import TAU
 
-N_BINS = 20
+N_BINS = 20                                   # bins of the benchmark data (data/train.npz)
 TARGETS_REL = (1e-2, 1e-3, 1e-4)
 GL3 = (np.array([-np.sqrt(0.6), 0.0, np.sqrt(0.6)]), np.array([5.0, 8.0, 5.0]) / 9.0)
 GL4 = np.polynomial.legendre.leggauss(4)
+
+
+class ObsGrid:
+    """Where the data sit: output times t (tau), n_bins equal bins (cell averages), Gauss points per bin.
+    The default is the benchmark grid (13 frames x 20 bins); fine(t) is the generator's native grid (40 cells)."""
+
+    def __init__(self, t=TAU, n_bins=N_BINS, n_gauss=4):
+        self.t, self.n_bins, self.n_gauss = np.asarray(t, float), int(n_bins), int(n_gauss)
+
+    @classmethod
+    def fine(cls, t, n_cells=40):
+        return cls(t, n_cells, 2)
+
+
+OBS_DEFAULT = ObsGrid()
+
+
+def velocity_on_grid(y, iotas, obs):
+    """surrogate.data.velocity_from_c on any ObsGrid: v (n, 3, T, n_bins) at the cell centres from c alone."""
+    from solver.properties import RHO_COEFF, alpha_V
+    tau, nb = obs.t, obs.n_bins
+    valid = np.isfinite(y[:, 0, :, 0])
+    c = np.where(np.isfinite(y), y, 1.0)
+    fwd = (c[:, :, 1:] - c[:, :, :-1]) / np.diff(tau)[None, None, :, None]
+    fv = (valid[:, 1:] & valid[:, :-1])[:, None, :, None].astype(float)
+    num, den = np.zeros_like(c), np.zeros_like(c)
+    num[:, :, 1:] += fwd * fv; den[:, :, 1:] += fv
+    num[:, :, :-1] += fwd * fv; den[:, :, :-1] += fv
+    dcdt = num / np.maximum(den, 1.0)
+    V = np.asarray(alpha_V(c, RHO_COEFF)[1])
+    cf = np.concatenate([c[..., :1], 0.5 * (c[..., 1:] + c[..., :-1]), c[..., -1:]], -1)
+    J = np.asarray(iotas, float)[:, :, None, None] - np.concatenate(
+        [np.zeros_like(c[..., :1]), np.cumsum(dcdt, -1)], -1) / nb
+    v, q = np.zeros_like(J), J.copy()
+    for j in range(nb):
+        v[..., j + 1] = (v[..., j] - V[..., j] * (J[..., j + 1] - q[..., j])) / (1.0 - V[..., j] * cf[..., j + 1])
+        q[..., j + 1] = J[..., j + 1] - cf[..., j + 1] * v[..., j + 1]
+    v_cell = 0.5 * (v[..., 1:] + v[..., :-1])
+    v_cell[~np.broadcast_to(valid[:, None, :, None], v_cell.shape)] = np.nan
+    return v_cell
 
 
 # ------------------------------------------------------------------------------------------------ networks
@@ -118,11 +163,11 @@ def fields(p, th, x, t, io, tmax, vs=None):
 
 
 # ------------------------------------------------------------------------------------------------ quadrature
-def bin_points(dtype, device):
-    xg, wg = GL4
-    edges = np.linspace(0, 1, N_BINS + 1)
+def bin_points(dtype, device, obs=OBS_DEFAULT):
+    xg, wg = GL4 if obs.n_gauss == 4 else np.polynomial.legendre.leggauss(obs.n_gauss)
+    edges = np.linspace(0, 1, obs.n_bins + 1)
     x = (0.5 * (edges[:-1, None] + edges[1:, None]) + 0.5 * np.diff(edges)[:, None] * xg[None]).ravel()
-    return torch.tensor(x, dtype=dtype, device=device), torch.tensor(np.tile(wg / 2.0, N_BINS), dtype=dtype, device=device)
+    return torch.tensor(x, dtype=dtype, device=device), torch.tensor(np.tile(wg / 2.0, obs.n_bins), dtype=dtype, device=device)
 
 
 def cell_nodes(n_cells, dtype, device):
@@ -135,17 +180,19 @@ def cell_nodes(n_cells, dtype, device):
 
 
 # ------------------------------------------------------------------------------------------------ problem
-def problem_stats(y, iotas, res_window="observed"):
-    """Per-material constants, as in jax_pinn.make_problem."""
+def problem_stats(y, iotas, res_window="observed", obs=OBS_DEFAULT):
+    """Per-material constants, as in jax_pinn.make_problem.  obs: the grid of y (default 13 frames x 20 bins)."""
     from surrogate.data import velocity_from_c
+    vel = velocity_from_c if obs is OBS_DEFAULT else (lambda yy, io: velocity_on_grid(yy, io, obs))
+    tau = obs.t
     mask = np.isfinite(y[0, :, 0])
     K = int(mask.sum())
-    tmax = float(TAU[K - 1])
-    vscale = float(np.nanmax(np.abs(velocity_from_c(y[None], np.asarray(iotas)[None])[0])))
-    ct = np.diff(y[:, :K], axis=1) / np.diff(TAU[:K])[None, :, None]
+    tmax = float(tau[K - 1])
+    vscale = float(np.nanmax(np.abs(vel(y[None], np.asarray(iotas)[None])[0])))
+    ct = np.diff(y[:, :K], axis=1) / np.diff(tau[:K])[None, :, None]
     st = float(np.sqrt(np.mean(ct ** 2)))
-    s_lo = 0.05 if res_window == "early" else float(np.sqrt(TAU[0] / tmax))
-    v_obs = velocity_from_c(y[None], np.asarray(iotas)[None])[0]                  # (3, 13, 20), NaN off frames
+    s_lo = 0.05 if res_window == "early" else float(np.sqrt(tau[0] / tmax))
+    v_obs = vel(y[None], np.asarray(iotas)[None])[0]                              # (3, T, n_bins), NaN off frames
     return dict(y=np.nan_to_num(y), mask=mask, v_obs=np.nan_to_num(v_obs), vmask=np.isfinite(v_obs), iotas=np.asarray(iotas, float), tmax=tmax, vscale=vscale, st=st,
                 sigma=1e-3 * float(np.nanmean(y)), mean_c=float(np.nanmean(y)), s_lo=s_lo)
 
@@ -154,27 +201,28 @@ class Losses:
     """Per-fit loss functions (one material, unbatched) with the shared constants bound in."""
 
     def __init__(self, build, dtype, device, n_res=1024, n_times=32, n_cells=32, w=None, residual="strong",
-                 hard_bc=False, n_fv_times=32):
+                 hard_bc=False, n_fv_times=32, obs=OBS_DEFAULT):
         self.build, self.n_res, self.n_times, self.n_cells = build, n_res, n_times, n_cells
         self.w = dict(data=1.0, pde=100.0, vol=100.0, bc=100.0, prior=0.0) | (w or {})
         self.residual, self.hard_bc, self.n_fv_times = residual, hard_bc, n_fv_times
         if build == "c" and (hard_bc or residual != "strong"):
             raise ValueError("--hard-bc and --residual fv are for Build 1 (cv) only")
         self.use_vdata = False                                  # set by train_batch (fit_v, Build 1 only)
-        self.XC = torch.tensor((np.arange(N_BINS) + 0.5) / N_BINS, dtype=dtype, device=device)
-        self.XB, self.WB = bin_points(dtype, device)
+        self.obs = obs
+        self.XC = torch.tensor((np.arange(obs.n_bins) + 0.5) / obs.n_bins, dtype=dtype, device=device)
+        self.XB, self.WB = bin_points(dtype, device, obs)
         self.edges, self.xq, self.wq = cell_nodes(n_cells, dtype, device)
-        self.t_obs = torch.tensor(TAU, dtype=dtype, device=device)
+        self.t_obs = torch.tensor(obs.t, dtype=dtype, device=device)
 
     def bin_average(self, p, t, io, tmax, vs=None):
         c = vmap(lambda x: c_point(p, x, t, io, tmax, vs))(self.XB)
-        return (c * self.WB).reshape(N_BINS, 4).sum(1)
+        return (c * self.WB).reshape(self.obs.n_bins, self.obs.n_gauss).sum(1)
 
     def data_loss(self, p, S):
         vs = S["vscale"] if self.hard_bc else None
         pred = vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(self.t_obs))(S["iotas"])
         r = torch.where(S["mask"][None, :, None], pred - S["y"], torch.zeros_like(pred))
-        return (r ** 2).sum() / (S["mask"].sum() * 3 * N_BINS)
+        return (r ** 2).sum() / (S["mask"].sum() * 3 * self.obs.n_bins)
 
     def vdata_loss(self, p, S):
         """Mean squared misfit of the v network to v reconstructed from the data, at the cell centres."""
@@ -328,7 +376,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
-                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False):
+                fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
+                obs=None):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -341,6 +390,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     hard_bc: wall fluxes built into the c network (Build 1; see c_point).  c then depends on theta, so stage 1
              fits from each start separately (no stage-1 cache) and theta stays frozen there.
     w["prior"] > 0 adds w_prior * mean((phi - phi0)^2), phi0 = logit of the start.
+    obs: ObsGrid of ys (default: the benchmark's 13 frames x 20 bins; ObsGrid.fine for data/fine_test.npz).
       2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
         'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
                  cosine decay to 1 % over warmup + joint
@@ -348,9 +398,10 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                  residual points, batched over the fits (two-loop recursion and Armijo backtracking per fit)
     """
     B = len(ys)
-    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc)
+    obs = obs or OBS_DEFAULT
+    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc, obs=obs)
     LS.use_vdata = bool(fit_v and build == "cv")
-    st = [problem_stats(y, io, res_window) for y, io in zip(ys, iotas)]
+    st = [problem_stats(y, io, res_window, obs) for y, io in zip(ys, iotas)]
     S = {k: torch.tensor(np.stack([s[k] for s in st]), device=device, dtype=torch.bool if k == "mask" else dtype)
          for k in ("y", "mask", "v_obs", "vmask", "iotas", "tmax", "vscale", "st", "sigma", "s_lo")}
     S["vmask"] = S["vmask"].bool()
@@ -510,6 +561,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     stopped = False
     cache = Path(prefit_cache) if prefit_cache and not hard_bc else None
     tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
+    if obs is not OBS_DEFAULT:                                   # never mix stage-1 fits of different data grids
+        tag += f"_g{len(obs.t)}x{obs.n_bins}"
     files = [cache / f"{tag}_s{int(sd)}.pt" for sd in seeds] if cache else []
     if cache and all(f.exists() for f in files):
         loaded = [torch.load(f, map_location=device) for f in files]
@@ -586,8 +639,15 @@ def main():
     p.add_argument("--residual", choices=["strong", "fv"], default="strong", help="pointwise or integral-form physics")
     p.add_argument("--hard-bc", action="store_true", help="build the wall fluxes into the c network (Build 1)")
     p.add_argument("--w-prior", type=float, default=0.0, help="weight of mean((phi - phi_start)^2)")
+    p.add_argument("--data", choices=["benchmark", "fine"], default="benchmark",
+                   help="benchmark: 13 frames x 20 bins (data/train.npz); fine: native grid (data/fine_test.npz)")
     a = p.parse_args()
     T = load_test()
+    obs, Y = None, T["y"]
+    if a.data == "fine":
+        F = np.load(Path(__file__).resolve().parents[1] / "data" / "fine_test.npz")
+        assert np.array_equal(F["index"], T["index"][:len(F["index"])]), "fine_test.npz is not the load_test() order"
+        obs, Y = ObsGrid.fine(F["t"]), F["y"]
     lo, hi = map(int, a.materials.split(":"))
     jobs = []
     for st in a.starts.split(","):
@@ -600,16 +660,17 @@ def main():
     if jobs:
         def progress(i, wall, rel, stage):
             print(f"{stage:6s} step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
-        R = train_batch([T["y"][k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
+        R = train_batch([Y[k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
                         [th0 for *_, th0 in jobs], a.build, [k for _, _, k, _ in jobs], steps=a.steps, lr=a.lr,
                         phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, prior=a.w_prior, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
                         fit_v=a.fit_v, fit_lbfgs_iters=a.fit_lbfgs_iters, prefit_cache=a.prefit_cache,
                         freeze=tuple(x for x in a.freeze.split(",") if x), residual=a.residual, hard_bc=a.hard_bc,
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
-                        fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters)
+                        fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters,
+                        obs=obs)
         for (d, st, k, th0), r in zip(jobs, R):
-            r.update(k=k, index=int(T["index"][k]), start=st, theta0=th0.tolist())
+            r.update(k=k, index=int(T["index"][k]), start=st, theta0=th0.tolist(), data=a.data)
             (d / f"m{k:03d}.json").write_text(json.dumps(r))
     for d in sorted({d for d, *_ in jobs} or {a.out / (("B_" if s == "center" else "A_") + s) / a.build
                                                 for s in a.starts.split(",")}):
