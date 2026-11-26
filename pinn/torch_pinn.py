@@ -111,6 +111,25 @@ def mlp(params, z):
     return (z @ W + b)[0]
 
 
+def mlp_sin(params, z):
+    """Correction-stage network (multi-stage training, Wang & Lai 2024): sin first layer, tanh after."""
+    W, b = params[0]
+    z = torch.sin(z @ W + b)
+    for W, b in params[1:-1]:
+        z = torch.tanh(z @ W + b)
+    W, b = params[-1]
+    return (z @ W + b)[0]
+
+
+def _net(p, key, z):
+    """Network `key` at inputs z, plus its correction stage when present: N(z) + eps * N1(kappa * z), where
+    p["ms"] holds the fixed scale eps_<key> and input frequencies k_<key> of the correction (see pinn/multistage.py)."""
+    out = mlp(p[key], z)
+    if key + "1" in p:
+        out = out + p["ms"]["eps_" + key] * mlp_sin(p[key + "1"], z * p["ms"]["k_" + key])
+    return out
+
+
 def _sqrt_time(t, tmax):
     pos = t > 0
     return torch.where(pos, torch.sqrt(torch.where(pos, t, torch.ones_like(t)) / tmax), torch.zeros_like(t))
@@ -125,7 +144,7 @@ def c_point(p, x, t, io, tmax, vs=None):
     s = _sqrt_time(t, tmax)
 
     def base(xx):
-        return 1.0 + s * mlp(p["c"], torch.stack([2 * xx - 1, 2 * s - 1, io / 5.0]))
+        return 1.0 + s * _net(p, "c", torch.stack([2 * xx - 1, 2 * s - 1, io / 5.0]))
     if vs is None:
         return base(x)
     th = torch.sigmoid(p["phi"])
@@ -145,7 +164,7 @@ def c_point(p, x, t, io, tmax, vs=None):
 
 def v_point(p, x, t, io, tmax, vscale):
     s = _sqrt_time(t, tmax)
-    return vscale * x * mlp(p["v"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+    return vscale * x * _net(p, "v", torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
 
 
 def q_point(p, th, x, t, io, tmax, vs=None):
@@ -377,7 +396,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
-                obs=None):
+                obs=None, init_params=None, cache_tag=""):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -391,6 +410,9 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
              fits from each start separately (no stage-1 cache) and theta stays frozen there.
     w["prior"] > 0 adds w_prior * mean((phi - phi0)^2), phi0 = logit of the start.
     obs: ObsGrid of ys (default: the benchmark's 13 frames x 20 bins; ObsGrid.fine for data/fine_test.npz).
+    init_params: one parameter dict per fit (CPU tensors) to start from instead of fresh networks, e.g. frozen
+             stage-0 networks plus correction networks (pinn/multistage.py); phi is set from theta0s.
+    cache_tag: extra suffix of the stage-1 cache file names (keeps fits to different targets apart).
       2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
         'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
                  cosine decay to 1 % over warmup + joint
@@ -407,11 +429,14 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     S["vmask"] = S["vmask"].bool()
     sizes = [3] + [width] * depth + [1]
     P = []
-    for th0, sd in zip(theta0s, seeds):
+    for i, (th0, sd) in enumerate(zip(theta0s, seeds)):
         g = torch.Generator().manual_seed(int(sd))
-        p = {"c": init_mlp(g, sizes, dtype)}
-        if build == "cv":
-            p["v"] = init_mlp(g, sizes, dtype)
+        if init_params is not None:
+            p = {k: v for k, v in init_params[i].items() if k != "phi"}
+        else:
+            p = {"c": init_mlp(g, sizes, dtype)}
+            if build == "cv":
+                p["v"] = init_mlp(g, sizes, dtype)
         p["phi"] = torch.tensor(np.log(th0 / (1 - th0)), dtype=dtype)     # last leaf
         P.append(p)
     stacked = _stack(P)
@@ -563,6 +588,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
     if obs is not OBS_DEFAULT:                                   # never mix stage-1 fits of different data grids
         tag += f"_g{len(obs.t)}x{obs.n_bins}"
+    tag += cache_tag
     files = [cache / f"{tag}_s{int(sd)}.pt" for sd in seeds] if cache else []
     if cache and all(f.exists() for f in files):
         loaded = [torch.load(f, map_location=device) for f in files]
