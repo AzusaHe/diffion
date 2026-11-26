@@ -12,3 +12,4 @@ __pycache__/
 diffion.egg-info/
 results/lbfgs/*/starts.npy
 results/pinn_prefit/cache/
+results/pinn_multistage/cache/
