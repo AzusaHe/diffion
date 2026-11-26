@@ -32,6 +32,10 @@ generator's own grid (40 cells at 104 times, data/fine_test.npz) instead of 20 b
 compares cell averages of the c network there and v is reconstructed from c on that grid.  Everything else is
 unchanged, so the runs compare directly with the 13 x 20 ones:
     python -m pinn.prefit_sweep --out results/pinn_fine --name wd1e-2 --w-data 1e-2 --extra="--data fine"
+Multi-stage PINN (--stage2, Wang & Lai 2024, Build 1): after the data-first run, freeze c and v and add correction
+networks (sin first layer at the stage-1 residual's dominant frequency, amplitude the stage-1 misfit); first
+theta frozen (ms2a), then corrections and theta together (ms2b).  See train_batch(stage2=...):
+    python -m pinn.prefit_sweep --name ms2_wd1e-2 --starts fno_ttt --w-data 1e-2 --extra="--stage2"
 Every (start, material) pair is one independent fit; all of them are stacked along a leading batch axis and
 trained together with torch.func.vmap (the loss is the sum of the per-fit losses and Adam is elementwise, so the
 fits do not interact).  Results go to <out>/<A_|B_><start>/<build>/m<k>.json in the format of jax_pinn.py, so
@@ -111,6 +115,26 @@ def mlp(params, z):
     return (z @ W + b)[0]
 
 
+def init_mlp_sin(gen, sizes, dtype):
+    """A correction network of the multi-stage PINN (Wang & Lai 2024): first-layer phases spread over [-pi, pi]
+    (sin layer) and a zero last layer, so the correction starts at exactly 0 and the stage-1 solution is kept."""
+    P = init_mlp(gen, sizes, dtype)
+    P[0] = (P[0][0], (torch.rand(sizes[1], generator=gen, dtype=dtype) * 2 - 1) * math.pi)
+    P[-1] = (torch.zeros_like(P[-1][0]), torch.zeros_like(P[-1][1]))
+    return P
+
+
+def mlp_sin(params, z, kappa):
+    """sin first layer on the inputs scaled by kappa = (kappa_x, kappa_s) (the dominant frequencies of the
+    stage-1 residual, in units of the [-1, 1] inputs; the current input is not scaled), then tanh layers."""
+    W, b = params[0]
+    z = torch.sin((z * torch.cat([kappa, torch.ones_like(kappa[:1])])) @ W + b)
+    for W, b in params[1:-1]:
+        z = torch.tanh(z @ W + b)
+    W, b = params[-1]
+    return (z @ W + b)[0]
+
+
 def _sqrt_time(t, tmax):
     pos = t > 0
     return torch.where(pos, torch.sqrt(torch.where(pos, t, torch.ones_like(t)) / tmax), torch.zeros_like(t))
@@ -125,7 +149,11 @@ def c_point(p, x, t, io, tmax, vs=None):
     s = _sqrt_time(t, tmax)
 
     def base(xx):
-        return 1.0 + s * mlp(p["c"], torch.stack([2 * xx - 1, 2 * s - 1, io / 5.0]))
+        z = torch.stack([2 * xx - 1, 2 * s - 1, io / 5.0])
+        out = 1.0 + s * mlp(p["c"], z)
+        if "c2" in p:                       # multi-stage: c = c1 + eps_c s N2(x, s, i), stage-1 network frozen
+            out = out + s * p["k2"][0] * mlp_sin(p["c2"], z, p["k2"][2:4])
+        return out
     if vs is None:
         return base(x)
     th = torch.sigmoid(p["phi"])
@@ -145,7 +173,11 @@ def c_point(p, x, t, io, tmax, vs=None):
 
 def v_point(p, x, t, io, tmax, vscale):
     s = _sqrt_time(t, tmax)
-    return vscale * x * mlp(p["v"], torch.stack([2 * x - 1, 2 * s - 1, io / 5.0]))
+    z = torch.stack([2 * x - 1, 2 * s - 1, io / 5.0])
+    out = mlp(p["v"], z)
+    if "v2" in p:                           # multi-stage: v = v1 + vscale x eps_v N2(x, s, i)
+        out = out + p["k2"][1] * mlp_sin(p["v2"], z, p["k2"][4:6])
+    return vscale * x * out
 
 
 def q_point(p, th, x, t, io, tmax, vs=None):
@@ -268,6 +300,20 @@ class Losses:
             data = data + L["vdata"]
         return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
+    def pde_residuals(self, p, S, x, t):
+        """Strong-form Build-1 residuals (r_c, r_v), each (3, N), at the points x, t (3, N) of one fit."""
+        th = torch.sigmoid(p["phi"])
+        tm, vs = S["tmax"], S["vscale"]
+        hb = vs if self.hard_bc else None
+
+        def J_point(x, t, io):
+            return q_point(p, th, x, t, io, tm, hb) + c_point(p, x, t, io, tm, hb) * v_point(p, x, t, io, tm, vs)
+
+        def res(x, t, io):
+            c, cx, ct, q, qx, V = fields(p, th, x, t, io, tm, hb)
+            return ct + grad(J_point, argnums=0)(x, t, io), grad(v_point, argnums=1)(p, x, t, io, tm, vs) + V * qx
+        return vmap(lambda xs, ts, io: vmap(lambda a, b: res(a, b, io))(xs, ts))(x, t, S["iotas"])
+
     def loss_cv_fv(self, p, S, t, th, J_point, hb):
         """Build 1 with the conservation laws in integral (finite-volume) form on n_cells cells, so only first
         derivatives of c enter:  int_cell c_t dx + J(x_{j+1}) - J(x_j) = 0  and, integrating v_x = -V q_x by
@@ -372,12 +418,42 @@ def _lbfgs_direction(g, hist, gamma):
     return -r
 
 
+def residual_kappa(LS, params, S, nx=128, ns=64, chunk=8, kmax=60.0):
+    """Dominant frequencies of the stage-1 residuals r_c, r_v along x and along s = sqrt(t / tmax), as first-layer
+    scales of the stage-2 networks (inputs 2x - 1 and 2s - 1 span 2): kappa = pi k / L for k cycles over a window
+    of length L (Hann-windowed FFT, mean removed, spectrum averaged over the currents and the other axis).
+    Returns (B, 4): kappa_x and kappa_s of r_c, then of r_v, clipped to [1, kmax]."""
+    B, dev, dt = S["tmax"].shape[0], S["tmax"].device, S["tmax"].dtype
+    xs = torch.linspace(0, 1, nx, device=dev, dtype=dt)
+    lo = S["s_lo"][:, None]
+    sg = lo + (1 - lo) * torch.linspace(0, 1, ns, device=dev, dtype=dt)[None]           # (B, ns)
+    RC, RV = [], []
+    for j in range(0, ns, chunk):
+        s_ = sg[:, j:j + chunk]
+        m = s_.shape[1]
+        X = xs[None, :, None].expand(B, nx, m).reshape(B, 1, -1).expand(B, 3, nx * m)
+        T = (S["tmax"][:, None, None] * s_[:, None, :] ** 2).expand(B, nx, m).reshape(B, 1, -1).expand(B, 3, nx * m)
+        rc, rv = vmap(LS.pde_residuals)(params, S, X.contiguous(), T.contiguous())
+        RC.append(rc.detach().reshape(B, 3, nx, m))
+        RV.append(rv.detach().reshape(B, 3, nx, m))
+    out = []
+    for R in (torch.cat(RC, 3), torch.cat(RV, 3)):
+        for ax, n, L in ((2, nx, torch.ones(B, device=dev, dtype=dt)), (3, ns, 1 - S["s_lo"])):
+            Rm = R - R.mean(ax, keepdim=True)
+            win = torch.hann_window(n, periodic=False, device=dev, dtype=dt)
+            Rm = Rm * (win[:, None] if ax == 2 else win)
+            spec = torch.fft.rfft(Rm, dim=ax).abs().mean(dim=(1, 3 if ax == 2 else 2))      # (B, n//2+1)
+            k = spec[:, 1:].argmax(1).to(dt) + 1
+            out.append((math.pi * k / L).clamp(1.0, kmax))
+    return torch.stack(out, 1)
+
+
 def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mult=0.1, w=None, log_every=100,
                 max_wall_s=float("inf"), res_window="observed", width=64, depth=4, device="cuda",
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
-                obs=None):
+                obs=None, stage2=None):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -391,6 +467,13 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
              fits from each start separately (no stage-1 cache) and theta stays frozen there.
     w["prior"] > 0 adds w_prior * mean((phi - phi0)^2), phi0 = logit of the start.
     obs: ObsGrid of ys (default: the benchmark's 13 frames x 20 bins; ObsGrid.fine for data/fine_test.npz).
+    stage2: multi-stage PINN (Wang & Lai 2024), Build 1 only; a dict with steps, lbfgs, joint_steps, joint_lbfgs,
+            lr, joint_lr, width, depth.  After the stages below, the c and v networks are frozen and correction
+            networks are added, c = c1 + eps_c s N2c, v = v1 + vscale x eps_v N2v (c = 1 at t = 0 and v(0) = 0 kept),
+            eps = the stage-1 data misfits, sin first layers scaled by the dominant frequencies of the stage-1
+            residuals (residual_kappa), last layers zero so training starts from the stage-1 solution, and the
+            total loss divided by its stage-1 value.  'ms2a': Adam (+ L-BFGS) on the corrections, theta frozen;
+            'ms2b': Adam (+ L-BFGS) on the corrections and theta.
       2 'warmup' warmup_steps Adam steps on the total loss, theta frozen (lr `lr`)
         'joint'  steps Adam steps on the total loss, networks and theta (lr `lr`, theta at phi_lr_mult x),
                  cosine decay to 1 % over warmup + joint
@@ -425,6 +508,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
 
     def total(p, x, t):
         L, parts = vmap(LS.loss)(p, S, x, t)
+        if "Lnorm" in S:                                   # multi-stage: loss relative to its stage-1 value
+            L = L / S["Lnorm"]
         return L.sum(), (L, parts)
 
     def total_data(p, x, t):
@@ -596,12 +681,62 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     if lbfgs_iters and not stopped:
         params, stopped = lbfgs(params, lbfgs_iters, frozen=is_frozen)
         stage_wall["lbfgs"] = time.perf_counter() - t0
+    ms = None
+    if stage2 and not stopped:
+        if build != "cv":
+            raise ValueError("stage2 is for Build 1 (cv) only")
+        with torch.no_grad():
+            eps_c = data_rmse(params, S).clamp_min(1e-9)               # c units
+            eps_v = v_rmse(params, S).clamp_min(1e-9)                  # relative to vscale
+            th1 = torch.sigmoid(params["phi"]).cpu().numpy()
+        kap = residual_kappa(LS, params, S)
+        g2 = torch.Generator().manual_seed(rng_seed + 1)
+        sizes2 = [3] + [stage2.get("width", width)] * stage2.get("depth", depth) + [1]
+        st2 = _stack([{"c2": init_mlp_sin(g2, sizes2, dtype), "v2": init_mlp_sin(g2, sizes2, dtype)} for _ in range(B)])
+        st2 = _rebuild(st2, iter([z.to(device) for z in _leaves(st2)]))
+        params = {"c": params["c"], "v": params["v"], "c2": st2["c2"], "v2": st2["v2"],
+                  "k2": torch.cat([eps_c[:, None], eps_v[:, None], kap], 1), "phi": params["phi"]}   # phi last
+        n_leaves = len(_leaves(params))
+        is_phi = [False] * (n_leaves - 1) + [True]
+        fr_a = [z for k in params for z in [k in ("c", "v", "k2", "phi")] * len(_leaves(params[k]))]
+        fr_b = [z for k in params for z in [k in ("c", "v", "k2")] * len(_leaves(params[k]))]
+        x_, t_ = draw()
+        _, (L1, parts1) = total(params, x_, t_)
+        S["Lnorm"] = L1.detach()
+        ms = dict(eps_c=eps_c.cpu().numpy(), eps_v=eps_v.cpu().numpy(), kappa=kap.cpu().numpy(), theta_stage1=th1,
+                  L_stage1=L1.detach().cpu().numpy(), parts_stage1={k: v.detach().cpu().numpy() for k, v in parts1.items()})
+        fmt = lambda a: " ".join(f"{z:.2e}" for z in a)  # noqa: E731
+        print(f"stage 2: eps_c {fmt(ms['eps_c'])}\n         eps_v {fmt(ms['eps_v'])}\n kappa (x_c, s_c, x_v, s_v) "
+              + " | ".join(" ".join(f"{z:.1f}" for z in k) for k in ms["kappa"]), flush=True)
+        if stage2.get("steps", 0):
+            params, stopped = adam(params, stage2["steps"], stage2.get("lr", 1e-3), 0.0, step_full, "ms2a", frozen=fr_a)
+        if stage2.get("lbfgs", 0) and not stopped:
+            params, stopped = lbfgs(params, stage2["lbfgs"], stage="ms2alb", frozen=fr_a)
+        stage_wall["ms2a"] = time.perf_counter() - t0
+        with torch.no_grad():
+            ms["rel_rmse_2a"] = (data_rmse(params, S).cpu().numpy() / mean_c)
+        if stage2.get("joint_steps", 0) and not stopped:
+            params, stopped = adam(params, stage2["joint_steps"], stage2.get("joint_lr", 1e-4), phi_lr_mult, step_full,
+                                   "ms2b", frozen=fr_b)
+        if stage2.get("joint_lbfgs", 0) and not stopped:
+            params, stopped = lbfgs(params, stage2["joint_lbfgs"], stage="ms2blb", frozen=fr_b)
+        stage_wall["ms2b"] = time.perf_counter() - t0
+        x_, t_ = draw()
+        _, (L2, parts2) = total(params, x_, t_)
+        ms["L_end_rel"] = L2.detach().cpu().numpy()
+        ms["parts_end"] = {k: v.detach().cpu().numpy() for k, v in parts2.items()}
     record("end", params)
     w_used = LS.w
     sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, fit_lbfgs_iters=fit_lbfgs_iters, fit_v=LS.use_vdata,
                  freeze=list(freeze), residual=residual, hard_bc=hard_bc, warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
-                 phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
-    return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
+                 phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory, stage2=stage2)
+
+    def ms_of(b):
+        if ms is None:
+            return None
+        pick = lambda v: v[b].tolist() if isinstance(v, np.ndarray) else {k: float(z[b]) for k, z in v.items()}  # noqa: E731
+        return {k: pick(v) for k, v in ms.items()}
+    return [dict(multistage=ms_of(b),build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
                  evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], v_rel_rmse=logs[b][-1]["v_rel_rmse"],
                  fit_end_rel_rmse=fit_end["rel_rmse"][b], fit_end_v_rel_rmse=fit_end["v_rel_rmse"][b], to_target=hit[b], weights=w_used, lr=lr,
                  phi_lr_mult=phi_lr_mult, schedule=sched, stage_wall_s=stage_wall, stopped_by_wall=stopped,
@@ -641,7 +776,18 @@ def main():
     p.add_argument("--w-prior", type=float, default=0.0, help="weight of mean((phi - phi_start)^2)")
     p.add_argument("--data", choices=["benchmark", "fine"], default="benchmark",
                    help="benchmark: 13 frames x 20 bins (data/train.npz); fine: native grid (data/fine_test.npz)")
+    p.add_argument("--stage2", action="store_true", help="multi-stage PINN: add correction networks after stage 3")
+    p.add_argument("--s2-steps", type=int, default=4000, help="stage 2a Adam steps (corrections, theta frozen)")
+    p.add_argument("--s2-lbfgs", type=int, default=1000, help="stage 2a L-BFGS iterations")
+    p.add_argument("--s2-joint-steps", type=int, default=2000, help="stage 2b Adam steps (corrections and theta)")
+    p.add_argument("--s2-joint-lbfgs", type=int, default=500, help="stage 2b L-BFGS iterations")
+    p.add_argument("--s2-lr", type=float, default=1e-3)
+    p.add_argument("--s2-joint-lr", type=float, default=1e-4)
+    p.add_argument("--s2-width", type=int, default=64)
+    p.add_argument("--s2-depth", type=int, default=4)
     a = p.parse_args()
+    stage2 = dict(steps=a.s2_steps, lbfgs=a.s2_lbfgs, joint_steps=a.s2_joint_steps, joint_lbfgs=a.s2_joint_lbfgs,
+                  lr=a.s2_lr, joint_lr=a.s2_joint_lr, width=a.s2_width, depth=a.s2_depth) if a.stage2 else None
     T = load_test()
     obs, Y = None, T["y"]
     if a.data == "fine":
@@ -668,7 +814,7 @@ def main():
                         freeze=tuple(x for x in a.freeze.split(",") if x), residual=a.residual, hard_bc=a.hard_bc,
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
                         fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters,
-                        obs=obs)
+                        obs=obs, stage2=stage2)
         for (d, st, k, th0), r in zip(jobs, R):
             r.update(k=k, index=int(T["index"][k]), start=st, theta0=th0.tolist(), data=a.data)
             (d / f"m{k:03d}.json").write_text(json.dumps(r))
