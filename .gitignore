@@ -13,3 +13,4 @@ diffion.egg-info/
 results/lbfgs/*/starts.npy
 results/pinn_prefit/cache/
 results/pinn_multistage/cache/
+results/pinn_prefit/**/m*_params.pt

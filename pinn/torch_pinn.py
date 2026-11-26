@@ -222,7 +222,7 @@ class Losses:
     def __init__(self, build, dtype, device, n_res=1024, n_times=32, n_cells=32, w=None, residual="strong",
                  hard_bc=False, n_fv_times=32, obs=OBS_DEFAULT):
         self.build, self.n_res, self.n_times, self.n_cells = build, n_res, n_times, n_cells
-        self.w = dict(data=1.0, pde=100.0, vol=100.0, bc=100.0, prior=0.0) | (w or {})
+        self.w = dict(data=1.0, vdata=1.0, pde=100.0, vol=100.0, bc=100.0, prior=0.0) | (w or {})
         self.residual, self.hard_bc, self.n_fv_times = residual, hard_bc, n_fv_times
         if build == "c" and (hard_bc or residual != "strong"):
             raise ValueError("--hard-bc and --residual fv are for Build 1 (cv) only")
@@ -284,7 +284,7 @@ class Losses:
         data = L["data"]
         if self.use_vdata:
             L["vdata"] = self.vdata_loss(p, S) / (1e-3 * vs) ** 2
-            data = data + L["vdata"]
+            data = data + w["vdata"] * L["vdata"]              # w_vdata: weight of the v part (stage 2 and 3)
         return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def loss_cv_fv(self, p, S, t, th, J_point, hb):
@@ -321,7 +321,7 @@ class Losses:
         data = L["data"]
         if self.use_vdata:
             L["vdata"] = self.vdata_loss(p, S) / (1e-3 * vs) ** 2
-            data = data + L["vdata"]
+            data = data + w["vdata"] * L["vdata"]              # w_vdata: weight of the v part (stage 2 and 3)
         return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def build2_line(self, p, th, t, io, S):
@@ -396,7 +396,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
-                obs=None, init_params=None, cache_tag=""):
+                obs=None, init_params=None, cache_tag="", return_params=False):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -404,7 +404,10 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
         'fitlbfgs' then fit_lbfgs_iters L-BFGS iterations on the same data loss.  fit_v (Build 1) adds the v
                  misfit to v reconstructed from c.  With prefit_cache, the stage-1 networks of each seed are
                  saved there and, when every seed is cached, loaded instead of refitted (theta set to theta0).
-    freeze: networks ("c", "v") held fixed after stage 1; freeze=("c", "v") leaves only theta to the physics.
+    freeze: networks ("c", "v") held fixed after stage 1; freeze=("c", "v") leaves only theta to the physics;
+            "phi" holds theta fixed too (e.g. freeze=("c", "phi") trains only v).
+    w["vdata"] (default 1) weights the v part of the data term in stages 2 and 3 (stage 1 is unchanged).
+    return_params: also return the final parameters (stacked over fits): (results, params).
     residual: "strong" (pointwise PDE residuals) or "fv" (integral form on cells, Build 1; see loss_cv_fv).
     hard_bc: wall fluxes built into the c network (Build 1; see c_point).  c then depends on theta, so stage 1
              fits from each start separately (no stage-1 cache) and theta stays frozen there.
@@ -518,7 +521,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 for j, (pj, gj) in enumerate(zip(_leaves(params), _leaves(g))):
                     m[j].mul_(b1).add_(gj, alpha=1 - b1)
                     v[j].mul_(b2).addcmul_(gj, gj, value=1 - b2)
-                    step_lr = sched * (mult if is_phi[j] else 0.0 if frozen and frozen[j] else 1.0)
+                    step_lr = sched * (0.0 if frozen and frozen[j] else mult if is_phi[j] else 1.0)
                     new.append(pj - step_lr * (m[j] / (1 - b1 ** (i + 1))) / (torch.sqrt(v[j] / (1 - b2 ** (i + 1))) + eps))
                 params = _rebuild(params, iter(new))
             if logged:
@@ -627,12 +630,15 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     sched = dict(fit_steps=fit_steps, fit_lr=fit_lr, fit_lbfgs_iters=fit_lbfgs_iters, fit_v=LS.use_vdata,
                  freeze=list(freeze), residual=residual, hard_bc=hard_bc, warmup_steps=warmup_steps, joint_steps=steps, lr=lr,
                  phi_lr_mult=phi_lr_mult, lbfgs_iters=lbfgs_iters, lbfgs_memory=lbfgs_memory)
-    return [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
+    out = [dict(build=build, theta=logs[b][-1]["theta"], rel_rmse=logs[b][-1]["rel_rmse"], steps=logs[b][-1]["step"],
                  evals=logs[b][-1]["evals"], wall_s=logs[b][-1]["wall_s"], v_rel_rmse=logs[b][-1]["v_rel_rmse"],
                  fit_end_rel_rmse=fit_end["rel_rmse"][b], fit_end_v_rel_rmse=fit_end["v_rel_rmse"][b], to_target=hit[b], weights=w_used, lr=lr,
                  phi_lr_mult=phi_lr_mult, schedule=sched, stage_wall_s=stage_wall, stopped_by_wall=stopped,
                  v_scale=st[b]["vscale"], s_t=st[b]["st"], sigma=st[b]["sigma"], s_lo=st[b]["s_lo"],
                  device=str(device), dtype=str(dtype).replace("torch.", ""), batch=B, log=logs[b]) for b in range(B)]
+    if return_params:
+        return out, params
+    return out
 
 
 def main():
@@ -665,6 +671,8 @@ def main():
     p.add_argument("--residual", choices=["strong", "fv"], default="strong", help="pointwise or integral-form physics")
     p.add_argument("--hard-bc", action="store_true", help="build the wall fluxes into the c network (Build 1)")
     p.add_argument("--w-prior", type=float, default=0.0, help="weight of mean((phi - phi_start)^2)")
+    p.add_argument("--w-vdata", type=float, default=1.0, help="weight of the v data term in stages 2 and 3 (0 = c data only)")
+    p.add_argument("--save-params", action="store_true", help="also save each fit's final networks as m<k>_params.pt")
     p.add_argument("--data", choices=["benchmark", "fine"], default="benchmark",
                    help="benchmark: 13 frames x 20 bins (data/train.npz); fine: native grid (data/fine_test.npz)")
     a = p.parse_args()
@@ -688,16 +696,20 @@ def main():
             print(f"{stage:6s} step {i:5d}  {wall:7.0f} s  median rel rmse {np.median(rel):.2e}", flush=True)
         R = train_batch([Y[k] for _, _, k, _ in jobs], [T["iotas"][k] for _, _, k, _ in jobs],
                         [th0 for *_, th0 in jobs], a.build, [k for _, _, k, _ in jobs], steps=a.steps, lr=a.lr,
-                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, prior=a.w_prior, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
+                        phi_lr_mult=a.phi_lr_mult, w=dict(data=a.w_data, vdata=a.w_vdata, prior=a.w_prior, pde=a.w_pde, vol=a.w_vol, bc=a.w_bc),
                         max_wall_s=a.max_wall_s, res_window=a.res_window, device=a.device,
                         fit_v=a.fit_v, fit_lbfgs_iters=a.fit_lbfgs_iters, prefit_cache=a.prefit_cache,
                         freeze=tuple(x for x in a.freeze.split(",") if x), residual=a.residual, hard_bc=a.hard_bc,
                         dtype=getattr(torch, a.dtype), progress=progress, log_every=100,
                         fit_steps=a.fit_steps, fit_lr=a.fit_lr, warmup_steps=a.warmup_steps, lbfgs_iters=a.lbfgs_iters,
-                        obs=obs)
-        for (d, st, k, th0), r in zip(jobs, R):
+                        obs=obs, return_params=a.save_params)
+        if a.save_params:
+            R, Pf = R
+        for b, ((d, st, k, th0), r) in enumerate(zip(jobs, R)):
             r.update(k=k, index=int(T["index"][k]), start=st, theta0=th0.tolist(), data=a.data)
             (d / f"m{k:03d}.json").write_text(json.dumps(r))
+            if a.save_params:
+                torch.save(_rebuild(Pf, iter([z[b].detach().cpu() for z in _leaves(Pf)])), d / f"m{k:03d}_params.pt")
     for d in sorted({d for d, *_ in jobs} or {a.out / (("B_" if s == "center" else "A_") + s) / a.build
                                                 for s in a.starts.split(",")}):
         print(d, json.dumps(summarize(d)), flush=True)
