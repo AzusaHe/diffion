@@ -1,4 +1,4 @@
-"""Summarize one-current predictions and compare on the reference scoring windows.
+"""Summarize predictions on each protocol's observed concentration interval.
 
 Use --run-root one_current/random from the diffion-ms directory. A reference-window
 score uses the original three-current concentration interval for both protocols.
@@ -59,12 +59,18 @@ def main(protocol, architectures):
                 o = np.asarray([r[metric] for r in observed])
                 a = np.asarray([r[metric] for r in reference])
                 b = np.asarray([r[metric] for r in old])
-                delta = (np.median(a[:, draws], axis=2) - np.median(b[:, draws], axis=2)).mean(0)
+                historical_medians = np.median(b[:, draws], axis=2)
+                delta = (np.median(a[:, draws], axis=2) - historical_medians).mean(0)
+                observed_delta = (np.median(o[:, draws], axis=2) - historical_medians).mean(0)
                 row[metric] = {
                     "one_current_observed_window": summarize(o, all_cases),
                     "one_current_original_window": summarize(a, all_cases),
                     "three_current_original_window": summarize(b, all_cases),
+                    "one_minus_three_observed_window_95pct_material_bootstrap": np.quantile(observed_delta,[0.025,0.975]).tolist(),
                     "one_minus_three_original_window_95pct_material_bootstrap": np.quantile(delta,[0.025,0.975]).tolist(),
+                    "three_current_observed_window_by_rank": {
+                        str(rank): summarize(b, ranks == rank) for rank in np.unique(ranks)
+                    },
                     "one_current_observed_window_by_rank": {
                         str(rank): summarize(o, ranks == rank) for rank in np.unique(ranks)
                     },
@@ -78,6 +84,8 @@ def main(protocol, architectures):
         "n_materials": len(indices), "n_seeds": 3, "aggregation": "mean of the three seed-specific medians",
         "bootstrap_draws": 2000, "bootstrap_seed": 819, "matched_indices": True,
         "different_windows": int(np.any(windows != reference_windows, axis=1).sum()),
+        "median_observed_span": {"one":float(np.median(windows[:,1]-windows[:,0])),
+                                 "three":float(np.median(reference_windows[:,1]-reference_windows[:,0]))},
         "rank_counts": {str(rank): int((ranks == rank).sum()) for rank in np.unique(ranks)}, "results": results,
     })
 

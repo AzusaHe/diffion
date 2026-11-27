@@ -39,8 +39,8 @@ for variant, label in VARIANTS.items():
         NAMES[f"pinn_{variant}_{start}"] = label
 WARM = ["pinn_"+v+"_fno_ttt" for v in VARIANTS]
 CENTER = ["pinn_"+v+"_center" for v in VARIANTS if v not in ("data_correction","solver_correction","solver_correction_weight1")]
-D_KEYS = ["D_three_common_pct","D_one_common_pct"]
-T_KEYS = ["t_three_common_rmse","t_one_common_rmse"]
+D_KEYS = ["D_three_observed_pct","D_one_observed_pct"]
+T_KEYS = ["t_three_observed_rmse","t_one_observed_rmse"]
 plt.rcParams.update({"font.family":"DejaVu Sans","font.size":9,"text.color":INK,
                      "axes.labelcolor":MUTED,"xtick.color":MUTED,"ytick.color":MUTED,
                      "pdf.fonttype":42,"axes.titleweight":"bold"})
@@ -166,18 +166,18 @@ def heat_page(groups, methods, title, subtitle):
         ax.spines[:].set_visible(False)
         ax.set_title(heading,fontsize=11,pad=25)
     ax_left.text(0,1.025,"Method / initialization",transform=ax_left.transAxes,fontsize=9,fontweight="bold")
-    note(fig,"Each cell reads three-current median → one-current median on the same materials and concentration window.\n"
+    note(fig,"Each cell reads three-current median → one-current median on the same materials. Each fit is scored over its own observed concentration interval.\n"
          "Orange means higher error with one current. Teal means lower error. Shading saturates at a fourfold difference.")
     return fig
 
 
 def current_focus(groups):
     fig=page("How the assigned current changes recovery",
-             "Each panel groups the same materials by the current kept in the one-current run. Their three-current fits use all three inputs.")
+             "Each panel groups the same materials by the single current retained. Each protocol is scored across the concentrations it observed.")
     key(fig,.795)
     methods=["fno_ttt","NM_fno_ttt","CMAES_fno_ttt","lbfgs_fno_ttt"]
     for i,method in enumerate(methods):
-        ax=fig.add_axes([.072+.24*i,.245,.183,.405])
+        ax=fig.add_axes([.072+.24*i,.30,.183,.36])
         vals=np.asarray([[statistic([r for r in groups[method] if int(r["rank"])==j],k) for k in D_KEYS] for j in range(3)])
         # Connect paired protocols vertically at the same assigned-current band.
         ax.vlines(range(3),vals[:,0],vals[:,1],color="#A6B7B7",lw=2)
@@ -186,25 +186,33 @@ def current_focus(groups):
         ax.set_title(["FNO + TTT","Nelder–Mead","CMA-ES","L-BFGS-B"][i],fontsize=13,loc="left",pad=21)
         ax.set_xticks(range(3),BAND);ax.set_xlim(-.45,2.45)
         if method.startswith("lbfgs"):
-            ax.set_yscale("log");ax.set_ylim(1e-9,100);ax.set_yticks([1e-8,1e-5,1e-2,10])
+            ax.set_yscale("log");ax.set_ylim(1e-9,1);ax.set_yticks([1e-8,1e-6,1e-4,1e-2,1])
             ax.text(0,1.012,"logarithmic scale",transform=ax.transAxes,fontsize=8,color=MUTED)
         else:
-            ax.set_ylim(0,26);ax.set_yticks([0,5,10,15,20,25])
+            peak=max(8,2*np.ceil(np.max(vals)/2))
+            ax.set_ylim(0,peak*1.08);ax.set_yticks(np.arange(0,peak+1,2))
         if i==0: ax.set_ylabel("Median diffusivity error (%)")
         ax.spines[["right","top"]].set_visible(False);ax.grid(axis="y",color=LINE)
         ax.tick_params(length=0,pad=4,labelsize=9)
         for j in range(3):
             value=vals[j,1]
-            ax.annotate(number(value,"D"),(j,max(vals[j])),xytext=(0,7),textcoords="offset points",
+            offset = -11 if value < vals[j,0] else 7
+            ax.annotate(number(value,"D"),(j,value),xytext=(0,offset),textcoords="offset points",
                         ha="center",color=ONE,fontsize=8,weight="bold")
-    note(fig,"All panels use the same 300 materials and the original concentration windows. Band sizes are 87 low, 112 middle and 101 high.\n"
-         "The numerical fits start from seed-0 FNO + TTT. Learned estimates average the three seed-specific medians.")
+    unique={r["material_id"]:r for r in groups["fno_ttt"]}
+    for j in range(3):
+        data=[r for r in unique.values() if int(r["rank"])==j]
+        w1,w3=[np.median([float(r[p+"_window_max"])-float(r[p+"_window_min"]) for r in data]) for p in ("one","three")]
+        fig.text(.072+.312*j,.176,f"{BAND[j]} current  ·  {len(data)} materials",weight="bold",fontsize=11)
+        fig.text(.072+.312*j,.139,f"Median c span:  {w1:.3f} (one)  /  {w3:.3f} (three)",fontsize=9.5,color=MUTED)
+    note(fig,"The span is the maximum minus minimum observed concentration. The numerical fits start from seed-0 FNO + TTT.\n"
+         "Learned estimates average the three seed-specific medians.")
     return fig
 
 
 def property_page(groups):
     fig=page("Recovered transport curves on two pilot materials",
-             "The first low- and high-current pilot materials are shown. Every panel spans the original three-current concentration window.")
+             "The first low- and high-current pilot materials are shown. Each fitted curve ends at the bounds of its own observed interval.")
     pilot=sorted(groups[PILOT],key=lambda r:int(r["material_id"]))
     chosen=[next(i for i,r in enumerate(pilot) if int(r["rank"])==j) for j in (0,2)]
     with np.load(REPO/"data/train.npz") as f:
@@ -219,20 +227,22 @@ def property_page(groups):
               REPO.parent/"diffion-junbo/results/pinn_prefit/ms2_wd1e-2/A_fno_ttt/cv","theta"),
              ("L-BFGS-B",single_fit,triple_fit,"theta")]
     for h,k in enumerate(chosen):
-        r=pilot[k];mid=int(r["material_id"]);c=np.linspace(float(r["three_window_min"]),float(r["three_window_max"]),241)
+        r=pilot[k];mid=int(r["material_id"])
+        grids=[np.linspace(float(r[p+"_window_min"]),float(r[p+"_window_max"]),241) for p in ("one","three")]
+        c=np.linspace(min(grid[0] for grid in grids),max(grid[-1] for grid in grids),301)
         fig.text(.328+.42*h,.792,f"Material {mid}  ·  {BAND[int(r['rank'])].lower()} current {float(r['iota']):.3f}",ha="center",fontsize=12,weight="bold")
         for j,(name,p1,p3,field) in enumerate(configs):
             records=[json.loads((p/f"m{k:03}.json").read_text()) for p in (p1,p3)]
             assert all(int(v["index"])==mid for v in records)
-            predictions=[properties(np.asarray(v[field]),c) for v in records]
+            predictions=[properties(np.asarray(v[field]),grid) for v,grid in zip(records,grids)]
             target=properties(truth[mid],c)
             if h==0: fig.text(.046,.654-.184*j,name,fontsize=10.3,va="center",weight="bold")
             for v in range(2):
                 ax=fig.add_axes([.175+h*.423+v*.202,.603-j*.184,.165,.128])
-                ax.axvspan(max(c.min(),float(r["one_window_min"])),min(c.max(),float(r["one_window_max"])),color="#F6E8CE")
+                ax.axvspan(grids[0][0],grids[0][-1],color="#F6E8CE")
                 ax.plot(c,target[v],color=INK,lw=2.9,alpha=.83)
-                ax.plot(c,predictions[1][v],c=THREE,lw=1.8,ls=(0,(5,3)))
-                ax.plot(c,predictions[0][v],c=ONE,lw=1.7,ls=(0,(1.2,1.7)))
+                ax.plot(grids[1],predictions[1][v],c=THREE,lw=1.8,ls=(0,(5,3)))
+                ax.plot(grids[0],predictions[0][v],c=ONE,lw=1.9,ls=(0,(1.2,1.7)))
                 ax.spines[["top","right"]].set_visible(False)
                 ax.tick_params(labelsize=7,length=2,pad=2);ax.locator_params(nbins=3)
                 if j==0: ax.set_title(["Diffusivity, D","Transference, t+"][v],fontsize=9)
@@ -248,7 +258,7 @@ def property_page(groups):
 def main():
     groups=load_cases()
     OUT.mkdir(exist_ok=True)
-    static="Every pair uses the original three-current concentration window. Lower error is better."
+    static="Each fit is scored from the minimum to the maximum concentration observed under its own current protocol. Lower error is better."
     first=LEARNED+["lbfgs_fno_ttt","NM_fno_ttt","CMAES_fno_ttt","BO_fno_ttt",PILOT,
                    "pinn_standard_cv_fno_ttt","pinn_data_correction_fno_ttt","pinn_solver_correction_fno_ttt"]
     figs=[pair_page(groups,first,"One versus three current densities",static,
@@ -266,7 +276,7 @@ def main():
         pair_page(groups,CENTER,"PINN refinements from the center start","Each fit starts with all normalized transport coefficients set to 0.5. The same eight pilot materials are paired.",
         "The data-first and staged methods fit fields before updating material properties. The native-grid row uses denser observations at the same currents."),
         heat_page(groups,LEARNED+FREE+DIRECT,"Current band by estimator and numerical method",
-        "Three-current fits are regrouped by the single current drawn for their paired fit. Both sides of each comparison use the common window."),
+        "Materials are grouped by the single current drawn. Error and concentration coverage are specific to each protocol."),
         heat_page(groups,[PILOT]+WARM,"Current band by learned-start PINN",
         "Of eight pilot materials, three drew a low current, one drew a middle current and four drew a high current. The middle column is one case."),
         heat_page(groups,CENTER,"Current band by center-start PINN",

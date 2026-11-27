@@ -13,7 +13,7 @@ the original benchmark. Valid frames and concentration windows are recomputed.
 - [Benchmark report (PDF)](reports/DiffIon_Random_One_Current_Results.pdf) and [14-page figure book (PDF)](reports/DiffIon_One_vs_Three_Current_Figures.pdf)
 - [Interactive material explorer](random/visuals/explorer.html). Download the HTML file and open it in a browser to compare individual fits offline.
 - [Method overview](random/visuals/methods_overview.png) and [results by current band](random/visuals/current_bands.png)
-- [All 34 matched method comparisons](random/report_data/comparison.csv) and [6,512 paired estimates by material and seed](random/visuals/paired_cases.csv)
+- [All 34 comparisons on each protocol’s observed range](random/report_data/observed_range_comparison.csv), [breakdown by low, middle and high current](random/report_data/observed_range_by_current_band.csv), and [6,512 paired estimates by material and seed](random/visuals/paired_cases.csv)
 
 ## Reproduce the main experiment
 
@@ -46,8 +46,16 @@ with its original `src/`, `data/` and `reference_runs/`.
 
 The new learned models see only the selected current,
 the matching concentration trajectory, its derived velocity and frame mask.
-Three-current windows are used after fitting to score both runs on the same
-concentration interval.
+For each material and protocol, the scoring interval runs from the minimum to
+the maximum concentration in that protocol's valid observations. The one-current
+fit uses its selected trajectory. The three-current fit uses its three
+trajectories. The main benchmark evaluates diffusivity relative L2 error and
+transference-number RMSE at 301 equally spaced concentrations within each
+interval. The summary tables also report the median interval widths.
+The two native-grid PINN configurations use extrema from their 104-time,
+40-cell input fields. To rebuild those scores, the original three-current
+`data/fine_test.npz` can be generated with `python -m solver.dataset_fine`.
+The scripts also recognize the saved file in a sibling `diffion-fine` checkout.
 
 ## Scoring
 
@@ -57,13 +65,13 @@ python -m one_current.design_check
 python one_current/learned/compare.py --run-root one_current/random
 python one_current/learned/frozen_splits.py --run-root one_current/random
 python one_current/learned/historical_refinements.py
-python -m one_current.plot_comparison
 ```
 
 `random/report_data/materials.csv` contains one row per estimate and source
 material ID. The concentration window of the one assigned current is used
-for the observed-window scores. The interval reached by the original three
-currents is used for the common-window scores. The separate 1.0-current column
+for its observed-window scores. The archived common-window columns in this
+file apply the original three-current interval to both fits for a separate
+extrapolation diagnostic. The separate 1.0-current column
 is a post-fit, forward prediction. Its trajectory was excluded from training,
 adaptation and all inverse objectives. Replay error is evaluated on the
 reference measurement support. Separate flags record whether the predicted
@@ -77,8 +85,8 @@ The principal 300-material supervised/TTT results average the three
 seed-specific medians. The solver initializations and PINN pilot use seed 0.
 Each numerical method retains its original optimization budget. Their replay
 and extrapolation columns use the same physical forward solver and observation
-grid. The 95th percentile in `random/report_data/methods.csv` gives the upper
-tail of common-window diffusivity error within each cohort.
+grid. The `p95_D_observed_pct` column in `random/report_data/methods.csv`
+gives the upper tail of one-current error over the concentration actually measured.
 
 ## Earlier clean and noisy campaign
 
@@ -98,19 +106,20 @@ python -m one_current.legacy.cnn xray_noisy
 python -m one_current.legacy.pinn clean --device cpu
 python -m one_current.legacy.pinn xray_noisy --device cpu
 python -m one_current.compare_archive
+python -m one_current.legacy.observed_ranges
 ```
 
-After every cohort has finished, run `python -m one_current.make_report` in an
-environment with ReportLab and the Windows Segoe UI and Georgia fonts. It writes
-the paired one-versus-three-current table to `random/report_data/comparison.csv`
-and the complete report to `one_current/reports/` in the repository.
+After preparing both campaigns, follow the build sequence below. The report
+writer uses ReportLab and the Windows Segoe UI and Georgia fonts. It writes
+`random/report_data/comparison.csv` and the benchmark report in `one_current/reports/`.
 
 ## Explore the paired results
 
 Open `random/visuals/explorer.html` in a browser to select a method, material,
 current band, training seed and property. The page works offline. The plotted
-errors compare the two fits over the same original three-current concentration
-window. Expand the measured-fields panel to inspect the binned observations.
+errors use each fit's own observed concentration range. Each fitted curve is
+drawn on its observed interval. Expand the measured-fields panel to inspect
+the binned observations.
 The bookmarked figure book is saved alongside the benchmark report.
 
 To regenerate the figures from saved outputs, run the modules in this order
@@ -124,4 +133,6 @@ python -m one_current.visuals.explorer
 python -m one_current.visuals.figures
 python -m one_current.visuals.secondary
 python -m one_current.visuals.assemble
+python -m one_current.plot_comparison
+python -m one_current.make_report
 ```

@@ -49,11 +49,12 @@ def number(value):
 
 
 def main():
-    material_fields = ["iota", "iota_low", "iota_middle", "iota_high", "one_window_min",
-                       "one_window_max", "three_window_min", "three_window_max"]
-    score_fields = ["D_one_common_pct", "D_three_common_pct", "t_one_common_rmse",
-                    "t_three_common_rmse", "D_one_observed_pct", "t_one_observed_rmse"]
+    material_fields = ["iota", "iota_low", "iota_middle", "iota_high"]
+    window_fields = ["one_window_min", "one_window_max", "three_window_min", "three_window_max"]
+    score_fields = ["D_one_observed_pct", "D_three_observed_pct", "t_one_observed_rmse", "t_three_observed_rmse"]
     materials, methods, labels = {}, {}, {}
+    windows = {"binned": {}, "native": {}}
+    method_grids = {}
     seen = set()
     with INPUT.open(encoding="utf-8-sig", newline="") as source:
         for record in csv.DictReader(source):
@@ -63,7 +64,13 @@ def main():
             rank = int(record["rank"])
             material = [rank] + [number(record[field]) for field in material_fields]
             if materials.setdefault(mid, material) != material or material[1] != material[rank+2]:
-                raise ValueError(f"Inconsistent current or window for material {mid}")
+                raise ValueError(f"Inconsistent current for material {mid}")
+            grid = record["observation_grid"]
+            if grid not in windows or method_grids.setdefault(key,grid) != grid:
+                raise ValueError(f"Inconsistent observation grid for method {key}")
+            bounds = [number(record[field]) for field in window_fields]
+            if windows[grid].setdefault(mid,bounds) != bounds or bounds[0]>=bounds[1] or bounds[2]>=bounds[3]:
+                raise ValueError(f"Inconsistent {grid} observed concentration range for material {mid}")
             if (key, mid, seed) in seen:
                 raise ValueError(f"Duplicate fit {key}, {mid}, {seed}")
             seen.add((key, mid, seed))
@@ -78,7 +85,8 @@ def main():
             raise ValueError(f"Missing property coefficients for {key}, {mid}, {seed}")
         if pair[1] is None and (key not in {"fno_ttt", "mlp_ttt"} or seed not in {1, 2}):
             raise ValueError(f"Unexpected missing historical coefficients for {key}, {mid}, {seed}")
-    payload = {"materials": materials, "methods": methods, "labels": labels, "curves": curves}
+    payload = {"materials": materials, "methods": methods, "labels": labels, "curves": curves,
+               "windows": windows, "methodGrids": method_grids}
     data = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).replace("<", "\\u003c")
     template = (HERE / "explorer_template.html").read_text(encoding="utf-8")
     destination = OUT / "explorer.html"

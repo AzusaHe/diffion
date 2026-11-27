@@ -25,7 +25,7 @@ select:focus-visible,summary:focus-visible{outline:3px solid #367cb6;outline-off
 </style>
 </head>
 <body><main>
-<header><h1>One versus three current densities</h1><p>Paired transport-property errors on the original three-current concentration range.</p></header>
+<header><h1>One versus three current densities</h1><p>Each fit is scored between the minimum and maximum concentration reached by its own measurements.</p></header>
 <div class="controls" aria-label="Comparison filters">
   <label>Method and initialization<select id="method"></select></label>
   <label>Property<select id="metric"><option value="D">Diffusivity · relative L₂ (%)</option><option value="t">Transference number · RMSE</option></select></label>
@@ -47,25 +47,25 @@ select:focus-visible,summary:focus-visible{outline:3px solid #367cb6;outline-off
     <h2>Inspect a material</h2><label class="case-selector">Source material ID<select id="material"></select></label>
     <div class="casearea">
       <h3>Current density</h3><div id="currents" class="current-values"></div><p class="note" id="chosen-current"></p>
-      <h3>Concentration range</h3><dl><dt>One current</dt><dd id="one-range"></dd><dt>Three currents</dt><dd id="three-range"></dd></dl>
+      <h3>Observed concentration ranges</h3><dl><dt>One current</dt><dd id="one-range"></dd><dt>Three currents</dt><dd id="three-range"></dd></dl><p class="note" id="grid-note"></p>
       <div class="curve-heading"><h3 id="curve-heading">Recovered transport curve</h3><label id="curve-seed-label">Curve seed<select id="curve-seed"></select></label></div>
       <svg id="curve" viewBox="0 0 390 208" role="img" aria-labelledby="curve-heading curve-text"></svg>
       <div class="curve-legend"><span><i class="sample"></i>True curve</span><span><i class="sample one"></i>One current</span><span id="historical-legend"><i class="sample three"></i>Three currents</span><span><i class="sample observed"></i>One-current range</span></div>
       <p class="note" id="curve-text"></p>
-      <h3 id="case-metric"></h3><div class="tablewrap"><table><thead><tr><th>Fit</th><th>One current</th><th>Three currents</th><th>One, observed¹</th></tr></thead><tbody id="case-scores"></tbody></table></div>
-      <p class="note">¹ Scored over the range reached by the selected current. The first two columns use the three-current range.</p>
+      <h3 id="case-metric"></h3><div class="tablewrap"><table><thead><tr><th>Fit</th><th>One current</th><th>Three currents</th></tr></thead><tbody id="case-scores"></tbody></table></div>
+      <p class="note">Each column uses its observed concentration range shown above.</p>
     </div>
   </section>
 </div>
 <!--FIELD_VIEW-->
-<details class="more" id="comparison"><summary id="comparison-label">Compare methods on this material</summary><p class="note">Each row uses the same material and three-current concentration range. Learned rows average the visible training seeds.</p>
+<details class="more" id="comparison"><summary id="comparison-label">Compare methods on this material</summary><p class="note">Each row uses the range observed by that method and protocol on this material. Native-grid PINNs use the full-resolution fields. Learned rows average the visible training seeds.</p>
   <div class="tablewrap"><table><thead><tr><th>Method and initialization</th><th>Fits</th><th>One current</th><th>Three currents</th></tr></thead><tbody id="other-methods"></tbody></table></div>
 </details><div id="live" class="sr" aria-live="polite"></div>
 </main>
 <script id="data" type="application/json">/*__CASE_DATA__*/</script>
 <script>
 "use strict";
-const {materials,methods,labels,curves}=JSON.parse(document.getElementById("data").textContent);
+const {materials,methods,labels,curves,windows,methodGrids}=JSON.parse(document.getElementById("data").textContent);
 const el=id=>document.getElementById(id);
 const selects=Object.fromEntries(["method","metric","rank","seed","material"].map(id=>[id,el(id)]));
 const ranks=["Low","Middle","High"];
@@ -86,7 +86,7 @@ for(const group of new Set(keys.map(key=>labels[key][0]))){
   selects.method.append(parent);
 }
 selects.method.value="fno_ttt";
-const metricInfo={D:{one:2,three:3,observed:6,name:"Diffusivity error",ylabel:"One current · relative L₂ error (%)",xlabel:"Three currents · relative L₂ error (%)",unit:"%"},t:{one:4,three:5,observed:7,name:"Transference-number RMSE",ylabel:"One current · t₊ RMSE",xlabel:"Three currents · t₊ RMSE",unit:""}};
+const metricInfo={D:{one:2,three:3,name:"Diffusivity error",ylabel:"One current · relative L₂ error (%)",xlabel:"Three currents · relative L₂ error (%)",unit:"%"},t:{one:4,three:5,name:"Transference-number RMSE",ylabel:"One current · t₊ RMSE",xlabel:"Three currents · t₊ RMSE",unit:""}};
 const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
 function median(values){const a=[...values].sort((x,y)=>x-y),i=Math.floor(a.length/2);return a.length%2?a[i]:(a[i-1]+a[i])/2;}
 function format(value,sig=4){
@@ -172,26 +172,29 @@ function propertyAt(z,c,metric){
   return metric==="D" ? .1*Math.exp(Math.log(20)*q) : -.25+1.25*q;
 }
 function curvePanel(fits){
-  const mid=selects.material.value,m=materials[mid],method=selects.method.value,metric=selects.metric.value;
+  const mid=selects.material.value,method=selects.method.value,metric=selects.metric.value;
   const picker=el("curve-seed"),available=fits.map(r=>r[1]);
   const seed=focusSeed!==null&&available.includes(focusSeed)?focusSeed:available[0];
   picker.replaceChildren(...available.map(s=>opt(s,s<0?"Single fit":"Seed "+s)));
   picker.value=String(seed);el("curve-seed-label").hidden=available.length===1;
   const [one,three]=curves.fits[method][seed<0?"fixed":String(seed)][mid];
-  const series=[{key:"true",z:curves.truth[mid],color:"#2b3e49",width:2.8,dash:"none"},
-    {key:"one",z:one,color:"#16715e",width:2,dash:"7 4"}];
-  if(three)series.push({key:"three",z:three,color:"#b35427",width:2.2,dash:"1 4"});
+  const [oneLo,oneHi,threeLo,threeHi]=windows[methodGrids[method]][mid];
+  const c0=Math.min(oneLo,threeLo),c1=Math.max(oneHi,threeHi);
+  const series=[{key:"true",z:curves.truth[mid],lo:c0,hi:c1,color:"#2b3e49",width:2.8,dash:"none"},
+    {key:"one",z:one,lo:oneLo,hi:oneHi,color:"#16715e",width:2,dash:"7 4"}];
+  if(three)series.push({key:"three",z:three,lo:threeLo,hi:threeHi,color:"#b35427",width:2.2,dash:"1 4"});
   el("historical-legend").hidden=!three;
-  const c0=m[7],c1=m[8], concentrations=Array.from({length:121},(_,i)=>c0+(c1-c0)*i/120);
-  series.forEach(s=>s.values=concentrations.map(c=>propertyAt(s.z,c,metric)));
+  for(const s of series){
+    s.concentrations=Array.from({length:121},(_,i)=>s.lo+(s.hi-s.lo)*i/120);
+    s.values=s.concentrations.map(c=>propertyAt(s.z,c,metric));
+  }
   const yy=series.flatMap(s=>s.values),min=Math.min(...yy),max=Math.max(...yy);
   const pad=Math.max((max-min)*.08,Math.abs(max)*.003,1e-6), low=min-pad,high=max+pad;
   const left=51,right=374,top=12,bottom=152;
   const x=c=>left+(c-c0)/(c1-c0)*(right-left),y=v=>bottom-(v-low)/(high-low)*(bottom-top);
-  const clipLow=Math.max(c0,m[5]),clipHigh=Math.min(c1,m[6]);
   const prop=metric==="D"?"D(c)":"t₊(c)",title=metric==="D"?"Recovered diffusivity":"Recovered transference number";
-  const nodes=[svgNode("title",{},title+", material "+mid),svgNode("desc",{},"True and estimated property versus concentration; shaded area marks the range of the selected current.")];
-  if(clipHigh>clipLow)nodes.push(svgNode("rect",{x:x(clipLow),y:top,width:x(clipHigh)-x(clipLow),height:bottom-top,fill:"#dfefe8"}));
+  const nodes=[svgNode("title",{},title+", material "+mid),svgNode("desc",{},"Each estimate spans its own observed concentration range. The shaded area marks the one-current range.")];
+  nodes.push(svgNode("rect",{x:x(oneLo),y:top,width:x(oneHi)-x(oneLo),height:bottom-top,fill:"#dfefe8"}));
   for(let i=0;i<=4;i++){
     const t=i/4,c=c0+(c1-c0)*t;
     nodes.push(svgNode("line",{x1:x(c),x2:x(c),y1:bottom,y2:bottom+4,class:"axis"}),svgNode("text",{x:x(c),y:bottom+18,class:"ticks","text-anchor":"middle"},format(c,3)));
@@ -203,11 +206,11 @@ function curvePanel(fits){
   }
   nodes.push(svgNode("line",{x1:left,x2:right,y1:bottom,y2:bottom,class:"axis"}),svgNode("text",{x:(left+right)/2,y:bottom+44,"text-anchor":"middle",class:"axislabel"},"Concentration, c"),svgNode("text",{x:left,y:10,class:"axislabel"},prop));
   for(const s of series){
-    const pts=s.values.map((v,i)=>x(concentrations[i]).toFixed(3)+","+y(v).toFixed(3)).join(" ");
+    const pts=s.values.map((v,i)=>x(s.concentrations[i]).toFixed(3)+","+y(v).toFixed(3)).join(" ");
     nodes.push(svgNode("polyline",{points:pts,fill:"none",stroke:s.color,"stroke-width":s.width,"stroke-dasharray":s.dash,"stroke-linecap":"round","data-series":s.key}));
   }
   el("curve").replaceChildren(...nodes);el("curve-heading").textContent=title;
-  el("curve-text").textContent=three?"":"Only seed 0 has archived three-current TTT coefficients. Paired error scores are available for every seed.";
+  el("curve-text").textContent=three?"Each estimate spans its own observed concentration range.":"The archive supplies three-current TTT coefficients for seed 0 and paired error scores for every seed.";
 }
 function updateCase(){
   const mid=+selects.material.value,m=materials[mid],info=metricInfo[selects.metric.value],seed=selects.seed.value;
@@ -221,10 +224,13 @@ function updateCase(){
     heading.textContent=name;number.textContent=format(m[2+index],5);box.append(heading,number);curr.append(box);
   });
   el("chosen-current").textContent=ranks[m[0]]+" ("+format(m[1],5)+") was selected for the one-current fit. Densities and concentrations are dimensionless.";
-  el("one-range").textContent=format(m[5],5)+" – "+format(m[6],5);
-  el("three-range").textContent=format(m[7],5)+" – "+format(m[8],5);
+  const grid=methodGrids[selects.method.value],[oneLo,oneHi,threeLo,threeHi]=windows[grid][mid];
+  el("one-range").textContent=format(oneLo,5)+" – "+format(oneHi,5);
+  el("three-range").textContent=format(threeLo,5)+" – "+format(threeHi,5);
+  el("grid-note").textContent=grid==="native"?"Ranges from the native grid, 40 cells and up to 104 times.":"Ranges from the binned grid, 20 bins and up to 13 times.";
+  el("diffion-fields").hidden=grid==="native";
   el("case-metric").textContent=info.name+(info.unit?" (%)":"");
-  el("case-scores").replaceChildren(...fits.map(row=>tableRow([row[1]<0?"Single fit":"Seed "+row[1],errorFmt(row[info.one]),errorFmt(row[info.three]),errorFmt(row[info.observed])],row[1]===focusSeed?"active":"")));
+  el("case-scores").replaceChildren(...fits.map(row=>tableRow([row[1]<0?"Single fit":"Seed "+row[1],errorFmt(row[info.one]),errorFmt(row[info.three])],row[1]===focusSeed?"active":"")));
   curvePanel(fits);
   const methodRows=[];
   for(const key of keys){

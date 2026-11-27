@@ -18,14 +18,12 @@ from matplotlib.ticker import MaxNLocator
 
 REPO = Path(__file__).resolve().parents[2]
 RANDOM = REPO / "one_current/random"
-LEGACY = REPO.parent / "latest_synthetic_ml/reference_runs"
+OBSERVED = RANDOM / "report_data/legacy_observed_ranges.json"
 OUT = RANDOM / "visuals/secondary.pdf"
 ONE, THREE = "#BF532B", "#006E75"
 INK, MUTED, GRID = "#1a343b", "#4b6169", "#dce6e7"
 DOMAINS = ("clean", "xray_noisy")
 DOMAIN_NAMES = ("Clean concentration", "X-ray-noisy concentration")
-U = np.linspace(0, 1, 201)
-BASIS = np.array([(1-U)**3, 3*U*(1-U)**2, 3*U**2*(1-U), U**3])
 
 
 def read(path):
@@ -161,30 +159,14 @@ def compact_figure():
 
 
 def cnn_errors(domain):
-    new = RANDOM/f"legacy/cnn_{domain}"
-    with np.load(new/"predictions.npz") as d:
-        ids=d["ids"]
-        one_sq=np.mean(((d["theta"]-d["truth"]).reshape(-1,2,4)@BASIS)**2,axis=2)
-    rows={i:[] for i in ids}
-    with (LEGACY/f"cnn_{domain}"/"test_predictions.jsonl").open(encoding="utf-8") as f:
-        for line in f:
-            r=json.loads(line)
-            target=np.array([r["D_target_coefficients_01"],r["t_plus_target_coefficients_01"]])
-            pred=np.array([r["D_mean_coefficients_01"],r["t_plus_mean_coefficients_01"]])
-            rows[r["material_id"]].append(np.mean(((pred-target)@BASIS)**2,axis=1))
-    assert len(ids)==389 and all(rows.values()) and sum(map(len,rows.values()))==18934
-    three_sq=np.asarray([np.mean(rows[i],axis=0) for i in ids])
-    old=read(RANDOM/"report_data/legacy_three_current_matched.json")[domain]
-    new_summary=read(new/"summary.json")
-    for errors,summary in ((one_sq,new_summary),(three_sq,old)):
-        np.testing.assert_allclose(np.sqrt(errors.mean(axis=0)),[summary["D_normalized_rmse"],summary["t_normalized_rmse"]],
-                                   rtol=3e-6,atol=1e-9)
-    return np.sqrt(one_sq.mean(axis=1)), np.sqrt(three_sq.mean(axis=1)), new_summary, old
+    case=read(OBSERVED)[domain]["cnn"]
+    return (np.asarray(case["one_combined_by_material"]),np.asarray(case["three_combined_by_material"]),
+            case["one"],case["three"])
 
 
 def cnn_figure():
     fig=page("CNN recovery on clean and noisy inputs",
-             "Each point represents one of the same 389 held-out materials. Points above parity have higher error with one current.")
+             "Each of the 389 points pairs observed-range errors for one material. Points above parity have higher error with one current.")
     all_data=[cnn_errors(domain) for domain in DOMAINS]
     upper=max(.05*np.ceil(max(a.max() for result in all_data for a in result[:2])/.05),.1)
     for j,(one,three,one_s,three_s) in enumerate(all_data):
@@ -211,53 +193,39 @@ def cnn_figure():
             fig.text(x,.202,f"{three_s[key]:.4f}",fontsize=11,ha="center",color=THREE)
         fig.text(base,.247,"One current",color=ONE,fontsize=10.7)
         fig.text(base,.202,"Three currents",color=THREE,fontsize=10.7)
-    footer(fig,"One current was drawn per material and reused for both input domains. The three-current score averages squared errors across each material’s\n"
-               "usable triplets (18,934 in total). The test-set RMSE gives each material equal weight and pools errors across the 201-point normalized curves.")
+    footer(fig,"Each input is scored at 201 points between its lowest and highest measured concentrations in the valid CNN keyframes. For each material,\n"
+               "three-current squared errors are averaged across its usable triplets (18,934 in total). All materials receive equal weight in the test-set RMSE.")
     return fig
 
 
 def pinn_figure():
-    import torch
-
     fig=page("PINN property curves on clean and noisy inputs",
-             "Material 2 in the earlier campaign. Curves show the inferred properties over the full normalized concentration interval.")
+             "Each fitted curve is shown across its own observed concentration range for material 2.")
+    summary=read(OBSERVED)
     for col,domain in enumerate(DOMAINS):
-        single_dir=RANDOM/f"legacy/pinn_{domain}"
-        single=read(single_dir/"one_current_result.json")
-        checkpoint=torch.load(single_dir/single["checkpoint"],map_location="cpu",weights_only=False)
-        original_dir=LEGACY/("pinn_clean_accepted" if col==0 else "pinn_xray_noisy_rejected/rejected_final_checkpoint_evaluation")
-        orig=read(original_dir/"pinn_evaluation_summary.json")
-        old_truth=orig["synthetic_truth_evaluation" if col==0 else "synthetic_truth"]
-        assert orig["cnn_initialization"]["material_id"]==single["material"]==2
-        assert orig["cnn_initialization"]["current_indices"]==[2,3,7]
-        assert single["source_current_index"]==3
-        assert single["status"]==("accepted" if col==0 else "rejected")
+        fit=summary[domain]["pinn"]
+        union=(min(fit[k]["u_min"] for k in ("one","three")),max(fit[k]["u_max"] for k in ("one","three")))
         left=.11+.467*col
         fig.text(left,.796,DOMAIN_NAMES[col],color=INK,fontweight="bold",fontsize=14)
         flag="Both protocols passed the fit criteria" if col==0 else "Both protocols failed the fit criteria"
         fig.text(left,.761,flag,color=MUTED,fontsize=10)
-        for row,key in enumerate(("D","t_plus")):
-            one_coeff=np.asarray(checkpoint[f"effective_{key}_coefficients_01"])
-            three_coeff=np.asarray(orig[f"{key}_coefficients_01"])
-            true_coeff=np.asarray(single["full_curve_scores"][f"{key}_true_coefficients_01"])
-            np.testing.assert_allclose(true_coeff,old_truth[f"{key}_true_coefficients_01"])
-            truth,one,three=(c@BASIS for c in (true_coeff,one_coeff,three_coeff))
-            err_one,err_three=(np.mean((c-truth)**2)**.5 for c in (one,three))
-            archive_check=err_three
-            if domain=="xray_noisy":
-                # The archived rejection audit used a denser 10,001-point grid.
-                u=np.linspace(0,1,10001)
-                dense=np.array([(1-u)**3,3*u*(1-u)**2,3*u**2*(1-u),u**3])
-                archive_check=np.sqrt(np.mean(((three_coeff-true_coeff)@dense)**2))
-            np.testing.assert_allclose([err_one,archive_check],[single["full_curve_scores"][f"{key}_curve_rmse_01"],
-                                       old_truth[f"{key}_curve_rmse_01"]],atol=1e-7)
+        for row,key in enumerate(("D_normalized_rmse","t_normalized_rmse")):
             ax=fig.add_axes([left,.517-.285*row,.343,.173])
-            ax.plot(U,truth,color=INK,ls=(0,(2.4,2.2)),lw=2.0,zorder=3)
-            ax.plot(U,one,color=ONE,lw=2.0)
-            ax.plot(U,three,color=THREE,lw=2.0)
-            ax.set_xlim(0,1)
-            ax.set_ylim((.25,1.035) if row==0 else (.2,.8))
-            ax.set_xticks([0,.25,.5,.75,1])
+            def curve(coeff,lo,hi):
+                u=np.linspace(lo,hi,201)
+                basis=np.array([(1-u)**3,3*u*(1-u)**2,3*u**2*(1-u),u**3])
+                return u,np.asarray(coeff)@basis
+            ax.plot(*curve(fit["truth"][row],*union),color=INK,ls=(0,(2.4,2.2)),lw=2,zorder=3)
+            for protocol,tint in (("three",THREE),("one",ONE)):
+                entry=fit[protocol]
+                u,v=curve(entry["coefficients"][row],entry["u_min"],entry["u_max"])
+                _,truth=curve(fit["truth"][row],u[0],u[-1])
+                np.testing.assert_allclose(np.sqrt(np.mean((v-truth)**2)),entry[key])
+                ax.plot(u,v,color=tint,lw=2,marker="o",ms=3,markevery=[0,len(u)-1])
+            err_one,err_three=fit["one"][key],fit["three"][key]
+            margin=.025*(union[1]-union[0])
+            ax.set_xlim(union[0]-margin,union[1]+margin)
+            ax.xaxis.set_major_locator(MaxNLocator(5))
             ax.set_ylabel("Normalized "+("D" if row==0 else "t+"))
             if row:
                 ax.set_xlabel("Normalized concentration")
@@ -269,7 +237,7 @@ def pinn_figure():
     fig.legend(handles=[Line2D([],[],color=INK,ls="--",label="Known material properties"),Line2D([],[],color=ONE,label="One current"),
                         Line2D([],[],color=THREE,label="Three currents")],frameon=False,ncol=3,loc="center",
                bbox_to_anchor=(.5,.139),fontsize=10)
-    footer(fig,"The single current (ι = 2.2285) also appears in the triplet. All displayed curve RMSEs use the same 201-point grid.\n"
+    footer(fig,"The single current (ι = 2.2285) also appears in the triplet. Each curve RMSE uses 201 points inside that protocol’s measured interval.\n"
                "Clean curves use accepted final checkpoints. Noisy curves show the last candidates from runs that failed the same five project criteria.")
     return fig
 

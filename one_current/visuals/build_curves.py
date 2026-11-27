@@ -33,11 +33,11 @@ def original_coefficients(ids):
     return history
 
 
-def validate(z, truth, bounds, targets, prefix):
+def validate(z, truth, bounds, targets, prefix, window):
     if z.shape != truth.shape or np.any(~np.isfinite(z)) or np.any((z < 0) | (z > 1)):
         raise ValueError("Expected a bounded, finite eight-coefficient estimate per case.")
     observed = curves(z, truth, bounds)
-    expected = [[float(r[key]) for r in targets] for key in (f"D_{prefix}_common_pct", f"t_{prefix}_common_rmse")]
+    expected = [[float(r[key]) for r in targets] for key in (f"D_{prefix}_{window}_pct", f"t_{prefix}_{window}_rmse")]
     np.testing.assert_allclose(observed, expected, rtol=1e-8, atol=1e-12)
 
 
@@ -62,10 +62,13 @@ def main():
         n = len(case_ids)
         np.testing.assert_array_equal(case_ids, ids[:n])
         targets = [paired[method, seed][i] for i in case_ids]
-        validate(one_z, truth[:n], common[:n], targets, "one")
+        one_bounds = np.array([[r["one_window_min"],r["one_window_max"]] for r in targets],dtype=float)
+        three_bounds = np.array([[r["three_window_min"],r["three_window_max"]] for r in targets],dtype=float)
+        validate(one_z, truth[:n], one_bounds, targets, "one", "observed")
+        validate(one_z, truth[:n], common[:n], targets, "one", "common")
         three_z = old.get((method, seed))
         if three_z is not None:
-            validate(three_z, truth[:n], common[:n], targets, "three")
+            validate(three_z, truth[:n], three_bounds, targets, "three", "observed")
             other = three_z.tolist()
             three_count += n
         else:

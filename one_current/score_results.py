@@ -76,6 +76,11 @@ def score():
         ids=single["index"][ix]; np.testing.assert_array_equal(ids,triple["index"][ix])
         truths=single["theta"][ix]; io=single["iotas"][ix,0]; single_w=single["window"][ix]; common_w=triple["window"][ix]
         measured=single["y"][ix,0]; prefix=single["K"][ix]
+    with np.load(ROOT/"data/fine_test.npz") as fine:
+        np.testing.assert_array_equal(fine["index"][:8],ids[:8])
+        np.testing.assert_array_equal(fine["iotas"][:8,0],io[:8])
+        pilot_fields=fine["y"][:8]
+        fine_w=np.column_stack((np.nanmin(pilot_fields,axis=(1,2,3)),np.nanmax(pilot_fields,axis=(1,2,3))))
     rank=np.load(ROOT/"data/current_rank.npy")[ix]
     truth_pred,truth_valid=predict(truths,np.ones(len(ix)))
     valid=np.logical_and.accumulate(truth_valid,axis=1)
@@ -89,7 +94,8 @@ def score():
         n=len(z)
         np.testing.assert_array_equal(case_ids,ids[:n])
         assert z.shape==(n,8) and np.isfinite(z).all()
-        d,t=curves(z,truths[:n],single_w[:n])
+        observed_w=fine_w if label.startswith("pinn_fine_") else single_w[:n]
+        d,t=curves(z,truths[:n],observed_w)
         dc,tc=curves(z,truths[:n],common_w[:n])
         held,okh=predict(z,np.ones(n))
         obs,oko=predict(z,io[:n])
@@ -102,6 +108,7 @@ def score():
                 c_replay_pct=obs_error[i],c_unseen1_pct=held_error[i],replay_admissible=bool(oo[i]),unseen_admissible=bool(oh[i])))
         summary.append(dict(method=label,n=n,D_observed_pct=np.median(d),t_observed_rmse=np.median(t),
             D_common_pct=np.median(dc),t_common_rmse=np.median(tc),p95_D_common_pct=np.percentile(dc,95),
+            p95_D_observed_pct=np.percentile(d,95),
             c_replay_pct=np.median(obs_error),c_unseen1_pct=np.median(held_error),
             n_replay_admissible=int(oo.sum()),n_unseen_admissible=int(oh.sum())))
     save_csv(OUT/"methods.csv",summary);save_csv(OUT/"materials.csv",by_case)

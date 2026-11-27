@@ -24,8 +24,8 @@ def main():
                    linewidths=1.8, marker="s", label=legend[1], zorder=3)
         ax.set_yticks(y, labels)
         ax.set_ylim(len(labels)-0.4, -0.6)
-        ax.set_xlim(0, 16)
-        ax.set_xticks([0, 4, 8, 12, 16])
+        ax.set_xlim(0, 10)
+        ax.set_xticks([0, 2, 4, 6, 8, 10])
         ax.set_xlabel("Median diffusivity error (%)")
         ax.spines[["top","left","right"]].set_visible(False)
         ax.spines["bottom"].set_color("#b7c4c4")
@@ -39,19 +39,16 @@ def main():
     series = [results[m]["D_relL2_pct"] for m in methods]
     pair_plot(overall, ["MLP", "MLP + TTT", "FNO", "FNO + TTT"],
               [r["three_current_original_window"] for r in series],
-              [r["one_current_original_window"] for r in series],
+              [r["one_current_observed_window"] for r in series],
               ["Three currents", "One current"])
-    overall.set_title("A    Same concentration window", loc="left", fontsize=11, fontweight="bold")
+    overall.set_title("A    Each protocol’s observed range", loc="left", fontsize=11, fontweight="bold")
 
     fno = results["fno_ttt"]["D_relL2_pct"]
     pair_plot(by_rank, ["Low (87)", "Middle (112)", "High (101)"],
+              [fno["three_current_observed_window_by_rank"][str(i)] for i in range(3)],
               [fno["one_current_observed_window_by_rank"][str(i)] for i in range(3)],
-              [fno["one_current_original_window_by_rank"][str(i)] for i in range(3)],
-              ["Observed window", "Common window"])
+              ["Three currents", "One current"])
     by_rank.set_title("B    FNO + TTT by assigned current", loc="left", fontsize=11, fontweight="bold")
-    # The high-current intervals coincide. Expose both symbols at that point.
-    by_rank.scatter(fno["one_current_observed_window_by_rank"]["2"], 2, s=12,
-                    color=colors[0], marker="o", zorder=4)
     fig.savefig(ROOT / "report_data/diffusivity_comparison.png", dpi=220, facecolor="white")
     plt.close(fig)
 

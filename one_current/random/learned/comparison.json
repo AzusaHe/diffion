@@ -6,6 +6,10 @@
   "bootstrap_seed": 819,
   "matched_indices": true,
   "different_windows": 199,
+  "median_observed_span": {
+    "one": 0.9767925046359893,
+    "three": 1.4248684242719474
+  },
   "rank_counts": {
     "0": 87,
     "1": 112,
@@ -17,10 +21,19 @@
         "one_current_observed_window": 6.378174208498887,
         "one_current_original_window": 11.528242025453677,
         "three_current_original_window": 9.089678565983021,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -3.550851012253192,
+          -1.8322133412890798
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           1.633108759999247,
           3.4536013882505108
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 10.705526160603142,
+          "1": 7.677326546883013,
+          "2": 9.74812777099202
+        },
         "one_current_observed_window_by_rank": {
           "0": 3.5668059345439342,
           "1": 6.11407192230912,
@@ -36,10 +49,19 @@
         "one_current_observed_window": 0.04524340352331446,
         "one_current_original_window": 0.06805889395706313,
         "three_current_original_window": 0.051504327968860765,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.012255878600157937,
+          -0.000954934767165164
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.010767180802796672,
           0.021733713938021045
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.05589135316625466,
+          "1": 0.04930163346219287,
+          "2": 0.053742397106710194
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.03406294203147011,
           "1": 0.040761432230189666,
@@ -55,10 +77,19 @@
         "one_current_observed_window": 0.07164670926461393,
         "one_current_original_window": 0.11067310499301226,
         "three_current_original_window": 0.07173900965781917,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.007022530785294131,
+          0.008195104847799931
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.030471591798404862,
           0.05073661810539051
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.07393301501683827,
+          "1": 0.0658531499927248,
+          "2": 0.07806005425274913
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.06328641602997015,
           "1": 0.06567768453384766,
@@ -74,10 +105,19 @@
         "one_current_observed_window": 0.00436598292415581,
         "one_current_original_window": 0.014167142523868253,
         "three_current_original_window": 0.009117093466023253,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.006418129841026346,
+          -0.003232020061827534
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.003134282093471346,
           0.007275059580953035
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.011240882314493812,
+          "1": 0.007036418144738178,
+          "2": 0.01016063973154012
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.0012764120494533696,
           "1": 0.0038133242020818824,
@@ -93,10 +133,19 @@
         "one_current_observed_window": 0.00204879318989506,
         "one_current_original_window": 0.004633940570885532,
         "three_current_original_window": 0.0026538333523429547,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.0012167399631377019,
+          -9.332611048591753e-05
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.001287401981409418,
           0.002660684453796268
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.0031249673248762134,
+          "1": 0.002432892950311781,
+          "2": 0.002896682011244466
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.0011966176300223007,
           "1": 0.0016627892286528213,
@@ -114,10 +163,19 @@
         "one_current_observed_window": 3.635663299474224,
         "one_current_original_window": 9.376147674944278,
         "three_current_original_window": 6.5526913288599475,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -3.5633992934440806,
+          -1.9063853043500039
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           2.194733754114067,
           3.585572675946371
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 7.377645960322354,
+          "1": 5.844355214209176,
+          "2": 6.675182264563001
+        },
         "one_current_observed_window_by_rank": {
           "0": 1.5179289758360277,
           "1": 4.012217157988208,
@@ -133,10 +191,19 @@
         "one_current_observed_window": 0.01965919487360235,
         "one_current_original_window": 0.05174077295073768,
         "three_current_original_window": 0.037228529544876675,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.022271961290635155,
+          -0.012649461034560211
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.011245669647731356,
           0.01891965964369817
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.03935603393012116,
+          "1": 0.0368617684202359,
+          "2": 0.03635266448014284
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.009456644867071984,
           "1": 0.02254338966521935,
@@ -152,10 +219,19 @@
         "one_current_observed_window": 0.008260425957328036,
         "one_current_original_window": 0.029499180478595618,
         "three_current_original_window": 0.013322466075396534,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.0068475534440135466,
+          -0.003736758531539845
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.010809280661332684,
           0.020634793531415625
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.013128472505399497,
+          "1": 0.012967644029754232,
+          "2": 0.014102899953181605
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.003583077243116519,
           "1": 0.008384940725783592,
@@ -171,10 +247,19 @@
         "one_current_observed_window": 0.001475392273069509,
         "one_current_original_window": 0.009075977950542305,
         "three_current_original_window": 0.004731211842745544,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.004017391457511267,
+          -0.0022947668876299016
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0031510042169383182,
           0.005797450358749715
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.005685057935049213,
+          "1": 0.003924018065036072,
+          "2": 0.005016406444428513
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.00023251975764941008,
           "1": 0.0017375697952669684,
@@ -190,10 +275,19 @@
         "one_current_observed_window": 0.0003874013819478912,
         "one_current_original_window": 0.0026793980621330274,
         "three_current_original_window": 0.0013882991472729655,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.001326722215434533,
+          -0.0007113577660192965
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.000987681793068707,
           0.0018008413893799995
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.0015525863907679771,
+          "1": 0.0013613854108011018,
+          "2": 0.0013219833603429773
+        },
         "one_current_observed_window_by_rank": {
           "0": 8.946904475517601e-05,
           "1": 0.0005115020467317939,
@@ -211,10 +305,19 @@
         "one_current_observed_window": 5.825650243963994,
         "one_current_original_window": 10.737606167625437,
         "three_current_original_window": 8.393017642493147,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -3.598238753461644,
+          -1.756365766602949
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           1.4051067211666353,
           3.0165966180137525
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 9.313955657574118,
+          "1": 7.983639192546623,
+          "2": 8.286493526778969
+        },
         "one_current_observed_window_by_rank": {
           "0": 2.8340461659375755,
           "1": 5.377462915135719,
@@ -230,10 +333,19 @@
         "one_current_observed_window": 0.02804075435321139,
         "one_current_original_window": 0.05699385787847014,
         "three_current_original_window": 0.04539508305602702,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.021970203343889237,
+          -0.012958547398515798
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0076371992017166095,
           0.016264710221899018
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.04567966633925661,
+          "1": 0.041501207065137366,
+          "2": 0.04902042814603549
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.014190638650278165,
           "1": 0.025451915914556505,
@@ -249,10 +361,19 @@
         "one_current_observed_window": 0.05268265168878558,
         "one_current_original_window": 0.08352043930109283,
         "three_current_original_window": 0.05603380367365057,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.008093937655821937,
+          0.0029452606677334756
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.02203807511194086,
           0.035892465725435356
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.05779526664774706,
+          "1": 0.05343799122825105,
+          "2": 0.05852639260816186
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.035266506746588155,
           "1": 0.04609492311185678,
@@ -268,10 +389,19 @@
         "one_current_observed_window": 0.0035588530816976264,
         "one_current_original_window": 0.012311407032295637,
         "three_current_original_window": 0.008189786648942932,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.006140475823393901,
+          -0.003154125980852
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0024976623885340473,
           0.006331632024163535
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.009320227920271545,
+          "1": 0.007300439635869478,
+          "2": 0.008598840834641705
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.0007788190498716866,
           "1": 0.0028849268612427866,
@@ -287,10 +417,19 @@
         "one_current_observed_window": 0.0007881235332638314,
         "one_current_original_window": 0.003251863284487396,
         "three_current_original_window": 0.002061396920385849,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.0016827097711959972,
+          -0.0009384159537187576
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0007672021282771675,
           0.0017318059477640104
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.002089845498561997,
+          "1": 0.0017243052289225736,
+          "2": 0.002403165751661647
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.0002026381014668076,
           "1": 0.0006507471786513227,
@@ -308,10 +447,19 @@
         "one_current_observed_window": 2.881054120903739,
         "one_current_original_window": 7.985814154186397,
         "three_current_original_window": 5.477390180231502,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -3.198210479323838,
+          -1.918045552684332
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           1.6273661603588958,
           3.291660923923599
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 5.845688727435326,
+          "1": 5.119486706002856,
+          "2": 5.347583090461029
+        },
         "one_current_observed_window_by_rank": {
           "0": 1.0040397499283225,
           "1": 3.2653168656230793,
@@ -327,10 +475,19 @@
         "one_current_observed_window": 0.01585155238877755,
         "one_current_original_window": 0.04415929121043483,
         "three_current_original_window": 0.03166984447511771,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.019777343328043137,
+          -0.011948447716959134
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.008967122979536762,
           0.017157867312473988
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.03329671644179579,
+          "1": 0.03123401301507206,
+          "2": 0.03178092340743901
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.006629378768988124,
           "1": 0.017415219497582093,
@@ -346,10 +503,19 @@
         "one_current_observed_window": 0.007911249651039405,
         "one_current_original_window": 0.022289005727192227,
         "three_current_original_window": 0.012505273640324532,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.006421748613532467,
+          -0.0033815042105756364
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.006447759635003218,
           0.015246910604479413
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.011676503576713184,
+          "1": 0.012648605752848227,
+          "2": 0.013675476143433868
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.004339245915644624,
           "1": 0.00800465807703474,
@@ -365,10 +531,19 @@
         "one_current_observed_window": 0.0008650686691238991,
         "one_current_original_window": 0.006840932900396147,
         "three_current_original_window": 0.003486107559083697,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.003108589898771926,
+          -0.0020062418717426535
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0024373387731646246,
           0.004431280941117906
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.003699972582198815,
+          "1": 0.0031008162907487902,
+          "2": 0.0036633937691750687
+        },
         "one_current_observed_window_by_rank": {
           "0": 0.00010136843738629,
           "1": 0.001085539760684905,
@@ -384,10 +559,19 @@
         "one_current_observed_window": 0.0002514231040700678,
         "one_current_original_window": 0.001950446028241018,
         "three_current_original_window": 0.0010029906862373884,
+        "one_minus_three_observed_window_95pct_material_bootstrap": [
+          -0.0009817665836081679,
+          -0.0005445318068898592
+        ],
         "one_minus_three_original_window_95pct_material_bootstrap": [
           0.0006636196407743727,
           0.0013737488478189352
         ],
+        "three_current_observed_window_by_rank": {
+          "0": 0.0011210203437973098,
+          "1": 0.000976680774907728,
+          "2": 0.0010131400998989587
+        },
         "one_current_observed_window_by_rank": {
           "0": 4.413643527487477e-05,
           "1": 0.0003038066286893925,
