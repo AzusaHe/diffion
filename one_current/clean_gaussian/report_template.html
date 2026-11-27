@@ -13,11 +13,11 @@
 @media(max-width:760px){.arch-protocols{grid-template-columns:1fr;gap:9px}.arch-quick td,.arch-quick th{white-space:normal}.arch-detail select{width:100%}}
 </style></head><body><header><div><small>DiffIon / Electrolyte transport</small><h1>Recovering transport properties from concentration profiles</h1>
 <p>One random current versus three paired currents, using clean simulations and their Gaussian-noisy counterparts. Each fit is scored on the concentration interval its own input covers.</p></div></header>
-<main><div class="numbers"><div><b>1,402</b><span>training materials</span></div><div><b>156</b><span>validation materials</span></div><div><b>389</b><span>held-out materials</span></div><div><b id="totalVariants">36</b><span>primary method and initialization combinations</span></div></div>
+<main><div class="numbers"><div><b>1,402</b><span>training materials</span></div><div><b>156</b><span>validation materials</span></div><div><b>389</b><span>held-out materials</span></div><div><b>1,000</b><span>updates per material for each PINN on Accuracy</span></div></div>
 <nav class="tabs" aria-label="Report views"><button data-tab="accuracy">Accuracy</button><button data-tab="derivatives">Derivative loss</button><button data-tab="noise">Effect of noise</button><button data-tab="cost">Compute cost</button><button data-tab="trade">Accuracy vs. cost</button><button data-tab="architecture">NN architecture</button><button data-tab="cases">Individual materials</button><button data-tab="seeds">Training seeds</button><button data-tab="protocol">Data and schedules</button></nav>
 <div class="controls"><label>Observation domain<select id="domain"><option value="clean">Clean</option><option value="gaussian_noisy">Gaussian noise</option></select></label>
 <label id="famLabel">Method family<select id="family"><option value="">All methods</option><option>Supervised and TTT</option><option>Numerical optimization</option><option>PINN refinement</option></select></label>
-<label id="coLabel">Evaluation cohort<select id="cohort"><option value="all">All tested by each method</option><option value="300">Matched first 300 test materials</option><option value="30">Matched first 30 test materials</option><option value="8">Matched first 8 test materials</option><option value="1">Material 000002 only</option></select></label>
+<label id="coLabel">Evaluation cohort<select id="cohort"><option value="all">All tested by each method</option><option value="300">Matched first 300 test materials</option><option value="30">Matched first 30 test materials</option><option value="8">Matched first 8 test materials</option><option value="6">Matched 6 eligible for all PINNs</option><option value="1">Material 000002 only</option></select></label>
 <label id="metLabel" hidden>Method<select id="method"></select></label><label id="idLabel" hidden>Material ID<select id="mat"></select></label><label id="propertyLabel" hidden>Property error<select id="property"><option value="1">D relative L₂ (%)</option><option value="2">t₊ RMSE</option></select></label>
 <label id="gradCountLabel" hidden>Current densities per material<select id="gradCount"><option value="1">One current</option><option value="3">Three currents</option></select></label>
 <label id="gradStartLabel" hidden>Material initialization<select id="gradStart"><option value="fno_ttt">FNO + TTT</option><option value="center">Center</option></select></label>
@@ -36,21 +36,115 @@ const ms=s=>s==null?"—":s<.001?num(s*1e6,2)+" µs":s<1?num(s*1000,2)+" ms":s<6
 const sec=s=>s?ms(s):"—", median=a=>{if(!a.length)return null;let b=[...a].sort((x,y)=>x-y),n=b.length;return (b[(n-1)>>1]+b[n>>1])/2;};
 const run=(s,c)=>runs[dom()+"__"+c+"__"+s], title=t=>'<h2>'+t+'</h2>', wrap=t=>'<div class="scroll"><table>'+t+'</table></div>';
 __DERIVATIVE_VIEW__
-function groupTable(head,fn,nCol){let out=head+"<tbody>";for(const g of groupNames){if(byId("family").value&&g!==byId("family").value)continue;let body="";for(const s of order){let a=run(s,1),b=run(s,3);if(!a||!b||a.family!==g)continue;body+=fn(s,a,b)||"";}if(body)out+='<tr class="group"><th colspan="'+nCol+'">'+g+'</th></tr>'+body;}return wrap(out+"</tbody>");}
-function observations(r){let v=byId("cohort").value;if(v==="all")return r.observations;if(r.n<+v)return [];return r.observations.slice(0,+v);}
+function groupTable(head,fn,nCol,methods=order,findRun=run){let out=head+"<tbody>";for(const g of groupNames){if(byId("family").value&&g!==byId("family").value)continue;let body="";for(const s of methods){let a=findRun(s,1),b=findRun(s,3);if(!a||!b||a.family!==g)continue;body+=fn(s,a,b)||"";}if(body)out+='<tr class="group"><th colspan="'+nCol+'">'+g+'</th></tr>'+body;}return wrap(out+"</tbody>");}
+function observations(r){
+    const cohort=byId("cohort").value;
+    if(cohort==="all")return r.observations;
+    if(r.n<Number(cohort))return [];
+    if(cohort==="6"){
+        const ids=DB.equal_budget.shared_ids, matched=r.observations.filter(row=>ids.includes(row[0]));
+        return matched.length===ids.length?matched:[];
+    }
+    return r.observations.slice(0,Number(cohort));
+}
 const metrics=rr=>[median(rr.map(r=>r[1])),median(rr.map(r=>r[2])),median(rr.map(r=>Math.min(2,r[4])-Math.max(0,r[3])))];
 function noteGates(a,b){return [a,b].filter(r=>r.meta.gate_status==="rejected").length?" †":"";}
+function accuracyCells(r,rows) {
+    const [d,t,span]=metrics(rows);
+    let gate="";
+    if(r.gates?.length){
+        const accepted=r.gates.slice(0,rows.length).filter(s=>s==="accepted").length;
+        gate='<br><small>'+accepted+'/'+rows.length+' passed gate'+(accepted<rows.length?' · '+(rows.length-accepted)+' diagnostic':'')+'</small>';
+    }
+    return '<td>'+num(d,2)+gate+'</td><td>'+num(t,4)+'</td><td>'+num(span,3)+'</td><td>'+ms(r.per_s)+'</td>';
+}
+function accuracyTable(){
+    const equal=DB.equal_budget.rows.filter(r=>r.domain===dom());
+    const makeKey=r=>r.slug+"__"+r.arm;
+    const index=new Map(equal.map(r=>[r.count+"__"+makeKey(r),r]));
+    const baselines=order.filter(slug=>run(slug,1)?.family!=="PINN refinement");
+    const methods=[...baselines,...new Set(equal.map(makeKey))];
+    const findRun=(slug,count)=>index.get(count+"__"+slug)??run(slug,count);
+    const head='<thead><tr><th rowspan="2">Method</th><th rowspan="2">Observed derivative loss</th><th rowspan="2">Updates per material</th><th rowspan="2">Materials</th><th colspan="4" class="num1">One current</th><th colspan="4" class="num3">Three currents</th></tr><tr>'+('<th>D error (%)</th><th>t₊ RMSE</th><th>c span</th><th>Time/material</th>').repeat(2)+'</tr></thead>';
+    return groupTable(head,(_,a,b)=>{
+        const one=observations(a),three=observations(b);
+        if(!one.length||!three.length)return "";
+        const loss=a.arm==="slopes"?"With derivative loss":a.arm==="control"?"Control":"—";
+        return '<tr><td>'+esc(a.name)+'</td><td>'+loss+'</td><td>'+num(a.budget,0)+'</td><td>'+one.length+'</td>'+accuracyCells(a,one)+accuracyCells(b,three)+'</tr>';
+    },12,methods,findRun);
+}
+function equalBudgetDetails(){
+    const stages=[["ttt","FNO TTT"],["field_prefit","Field prefit"],["physics_warmup","Physics warmup"],
+                  ["joint","Joint fit"],["material_only","Frozen-field material fit"],["correction","Correction"]];
+    const rows=DB.equal_budget.rows.filter(r=>r.domain===dom()&&r.count===1&&r.arm==="control");
+    const headers=stages.map(([_,label])=>'<th>'+label+'</th>').join("");
+    const lines=rows.map(r=>'<tr><td>'+esc(r.name)+'</td>'+stages.map(([k])=>'<td>'+num(r.stages[k]||0,0)+'</td>').join("")+
+        '<td>'+num(r.budget,0)+'</td></tr>').join("");
+    return '<details><summary>Update counts by training stage</summary><p>Each count is per material. These allocations apply to both current counts and both data domains. Paired control and derivative-loss fits use identical allocations.</p>'+wrap('<thead><tr><th>PINN / initialization</th>'+headers+'<th>Total</th></tr></thead><tbody>'+lines+'</tbody>')+'</details>';
+}
+function equalSlopeSummary() {
+    const equal=DB.equal_budget.rows.filter(r=>r.domain===dom());
+    const body=[1,3].map(count=>{
+        let pairs=0,dWins=0,tWins=0,n=0;
+        for(const slope of equal.filter(r=>r.count===count&&r.arm==="slopes")){
+            const control=equal.find(r=>r.count===count&&r.slug===slope.slug&&r.arm==="control");
+            if(!control)continue;
+            const ar=observations(control),br=observations(slope);
+            if(!ar.length||!br.length)continue;
+            const a=metrics(ar),b=metrics(br);
+            pairs++;n=ar.length;dWins+=Number(b[0]<a[0]);tWins+=Number(b[1]<a[1]);
+        }
+        return pairs?'<tr><td>'+count+'</td><td>'+n+'</td><td>'+dWins+' / '+pairs+'</td><td>'+tWins+' / '+pairs+'</td></tr>':"";
+    }).join("");
+    if(!body)return "";
+    return '<h3>Effect of derivative loss at the same budget</h3><p class="hint">Each pair shares its architecture, initialization, materials and full 1,000-update schedule. Counts show how often adding spatial slope targets reduced the median property error.</p>'+
+        wrap('<thead><tr><th>Currents</th><th>Materials per pair</th><th>Lower D error</th><th>Lower t₊ RMSE</th></tr></thead><tbody>'+body+'</tbody>');
+}
+function equalBudgetCases() {
+    const select=byId("equalMethod");
+    if(!select)return;
+    const fits=DB.equal_budget.rows.filter(r=>r.domain===dom()&&r.slug+"__"+r.arm===select.value);
+    const one=fits.find(r=>r.count===1),three=fits.find(r=>r.count===3);
+    if(!one||!three){byId("equalCases").innerHTML="";return;}
+    function cells(row,gate){
+        return '<td>'+num(Math.max(0,row[3]),4)+' – '+num(Math.min(2,row[4]),4)+'</td><td>'+num(row[1],3)+'</td><td>'+num(row[2],5)+'</td><td>'+esc(gate||"—")+'</td>';
+    }
+    const threeRows=observations(three);
+    const body=observations(one).map((r,i)=>'<tr><td>'+String(r[0]).padStart(6,"0")+'</td>'+
+        cells(r,one.gates[i])+cells(threeRows[i],three.gates[i])+'</tr>').join("");
+    byId("equalCases").innerHTML=wrap('<thead><tr><th rowspan="2">Material</th><th colspan="4">One current</th><th colspan="4">Three currents</th></tr><tr>'+
+        ('<th>Scored c interval</th><th>D error (%)</th><th>t₊ RMSE</th><th>Checkpoint gate</th>').repeat(2)+'</tr></thead><tbody>'+body+'</tbody>');
+}
+function equalCaseSelector() {
+    const choices=DB.equal_budget.rows.filter(r=>r.domain===dom()&&r.count===1&&observations(r).length);
+    if(!choices.length)return "";
+    const options=choices.map(r=>'<option value="'+esc(r.slug+"__"+r.arm)+'">'+esc(r.name)+' · '+(r.arm==="slopes"?"With derivative loss":"Control")+'</option>').join("");
+    return '<details><summary>Inspect equal-budget PINN results by material</summary><div class="controls"><label>PINN and observed derivative loss<select id="equalMethod">'+options+'</select></label></div><div id="equalCases"></div></details>';
+}
+function downloadEqualBudget(){
+    const blob=new Blob([DB.equal_budget.csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download="equal_budget_accuracy_cost.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+}
 function showAccuracy(){
 let h=title("Observed-range accuracy")+'<p class="sub">Median across held-out materials. Lower values indicate closer recovery. D error is relative L₂ in percent. The transference number t₊ is dimensionless.</p>';
+const family=byId("family").value;
+if(!family||family==="PINN refinement"){
+    h+='<p><b>Every PINN uses 1,000 optimizer updates per material.</b> This includes field prefit, physics warmup, joint or frozen-field fitting, and correction when present. FNO + TTT starts spend 150 updates on test-time training and 850 on the PINN. The PINN comparison uses Adam or AdamW throughout, with zero L-BFGS iterations. Shared supervised pretraining is accounted for separately.</p>';
+    h+='<p>Binned PINNs fit eight held-out materials. The CNN-initialized PINN fits six. Materials 000037 and 000045 have no steady nonzero-current profile among the selected currents, which its steady-state loss requires. Select <b>Matched 6 eligible for all PINNs</b> to compare every method on materials 000002, 000003, 000011, 000021, 000022 and 000032.</p>';
+    if(Number(byId("cohort").value)>8)h+='<p class="hint">The selected cohort exceeds the number of PINN fits.</p>';
+    else h+='<p>Under <b>PINN refinement</b>, the <b>With derivative loss</b> fits add spatial slope targets for observed concentration and reconstructed velocity. '+(family?'':'<button class="export" onclick="byId(\'family\').value=\'PINN refinement\';render()">Show PINN refinement only</button>')+'</p>';
+}
 let f=run("fno",1),f3=run("fno",3),ft=run("fno_ttt",1);
 if(f&&f3&&ft&&(!byId("family").value||byId("family").value===groupNames[0])){let x=metrics(observations(f)),y=metrics(observations(f3)),z=metrics(observations(ft));h+='<div class="summary">On the selected cohort, the supervised FNO has median D error <b>'+num(x[0],2)+'%</b> with one current and <b>'+num(y[0],2)+'%</b> with three. The median observed concentration spans are '+num(x[2],3)+' and '+num(y[2],3)+'. After test-time training, the one-current FNO error is '+num(z[0],2)+'%.</div>';}
 let solver=run("lbfgs_center",1),s3=run("lbfgs_center",3);
 if(solver&&s3&&f&&(!byId("family").value||byId("family").value===groupNames[1])){
  const rr=observations(solver),rt=observations(s3);if(rr.length){const x=metrics(rr),y=metrics(rt),fr=metrics(f.observations.slice(0,rr.length));
  h+='<p>On the same '+rr.length+' materials, the one-current FNO has median D error '+num(fr[0],2)+'%. A center-started L-BFGS-B fit gives <b>'+num(x[0],2)+'%</b> in '+ms(solver.per_s)+' per material on average. With three currents, L-BFGS-B gives <b>'+num(y[0],2)+'%</b> in '+ms(s3.per_s)+'.</p>';}}
-let head='<thead><tr><th rowspan="2">Method</th><th rowspan="2">Materials</th><th colspan="3" class="num1">One current</th><th colspan="3" class="num3">Three currents</th></tr><tr><th>D error (%)</th><th>t₊ RMSE</th><th>c span</th><th>D error (%)</th><th>t₊ RMSE</th><th>c span</th></tr></thead>';
-h+=groupTable(head,(s,a,b)=>{let ar=observations(a),br=observations(b);if(!ar.length||!br.length)return "";const x=metrics(ar),y=metrics(br);return '<tr><td>'+esc(a.name)+noteGates(a,b)+'</td><td>'+ar.length+'</td><td>'+num(x[0],2)+'</td><td>'+num(x[1],4)+'</td><td>'+num(x[2],3)+'</td><td>'+num(y[0],2)+'</td><td>'+num(y[1],4)+'</td><td>'+num(y[2],3)+'</td></tr>';},8);
-return h+'<p class="fineprint">Matched cohorts keep the same materials for every displayed row. Methods with fewer tested materials are omitted from that selection. Material 000002 is shared by every method. † A native CNN → PINN fit failed its checkpoint gate. Its terminal estimate is diagnostic. The Data and schedules view lists the outcome for each current count.</p>';}
+h+=accuracyTable();
+h+='<p class="fineprint">Time/material is the mean elapsed cost over the full timed cohort, including initialization, prefit, forward solves and correction as applicable. FNO + TTT reuses the seed-0 estimates and their measured mean initialization time. Shared supervised training times are in the CSV. Batched throughput, grid size, current count, device and concurrent jobs affect these measurements. The CNN-initialized PINN reports how many selected materials passed its checkpoint gate. Its summary includes terminal diagnostic estimates for any rejected material.</p>';
+if(!family||family==="PINN refinement")h+=equalSlopeSummary()+equalBudgetDetails()+equalCaseSelector();
+return h+'<button class="export" onclick="downloadEqualBudget()">Download all Accuracy results (CSV)</button>';}
 function showCost(){
 let h=title("Measured computational cost")+'<p class="sub">Training and validation search are one-time costs per checkpoint. The final two columns give the mean per held-out material for inference or refinement from prepared inputs, including any learned initialization.</p>';
 let hd='<thead><tr><th rowspan="2">Method</th><th rowspan="2">Device¹</th><th rowspan="2">Materials</th><th colspan="2">Pretraining</th><th colspan="2">Validation search</th><th colspan="2">Inference per material</th></tr><tr>'+('<th>One</th><th>Three</th>').repeat(3)+'</tr></thead>';
@@ -131,7 +225,10 @@ h+='<p>The binned PINN comparison uses a fixed budget across domains and current
 if(DB.residuals){const d=DB.residuals[dom()+"__1__fno"];h=h.replace('<h3>Run details for the selected domain</h3>','<h3>What TTT optimized</h3><p>For the one-current FNO, the median scaled concentration-conservation loss fell from '+num(d.before,4)+' to '+num(d.after,4)+'. The loss fell on '+d.n_lower+' of '+d.n+' test materials. The property errors above evaluate a different quantity. Spatial binning and the time between retained profiles both affect the discretized residual.</p><h3>Run details for the selected domain</h3>');}
 for(const s of order){let a=run(s,1),b=run(s,3);if(!a||!b)continue;h+='<details><summary>'+esc(a.name)+'</summary>';for(const r of [a,b]){let m=r.meta;h+='<p><b>'+r.count+(r.count===1?" current":" currents")+'</b> · '+r.n+' test material'+(r.n===1?"":"s")+' · '+esc(m.device)+'<br>'+esc(m.description)+'</p><p class="fineprint">Final-stage test time '+ms(m.test_s)+'. '+(m.ttt_lr?"TTT learning rate "+m.ttt_lr+". ":"")+(m.median_evals?"Median objective evaluations "+m.median_evals+". ":"")+(m.gate_status?"Checkpoint "+esc(m.gate_status)+" ("+esc(m.checkpoint)+"). ":"")+(m.timing?esc(m.timing):"")+(m.statuses?" Solver stop counts · "+Object.entries(m.statuses).map(([s,n])=>esc(s)+" ("+n+")").join(", ")+". ":"")+(m.median_c_rmse?" Median concentration RMSE "+num(m.median_c_rmse,6)+".":"")+'</p>';}h+='</details>';}return h;}
 function refreshMaterials(){let select=byId("mat"),prev=select.value,a=run(byId("method").value,1);select.innerHTML=(a?.observations||[]).map(v=>'<option value="'+v[0]+'">'+String(v[0]).padStart(6,"0")+'</option>').join("");if(Array.from(select.options).some(o=>o.value===prev))select.value=prev;}
-function render(){document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tab===tab)));byId("domain").parentElement.hidden=["noise","architecture"].includes(tab);byId("famLabel").hidden=!["cost","accuracy","noise","trade"].includes(tab);byId("coLabel").hidden=!["accuracy","noise","trade"].includes(tab);byId("metLabel").hidden=byId("idLabel").hidden=tab!=="cases";byId("propertyLabel").hidden=tab!=="trade";byId("gradCountLabel").hidden=byId("gradStartLabel").hidden=tab!=="derivatives";byId("content").innerHTML='<section class="panel">'+({accuracy:showAccuracy,derivatives:showDerivatives,noise:showNoise,cost:showCost,trade:showTrade,cases:showCases,seeds:showSeeds,protocol:showProtocol,architecture:showArchitectures}[tab]())+'</section>';
+function render(){document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tab===tab)));byId("domain").parentElement.hidden=["noise","architecture"].includes(tab);byId("famLabel").hidden=!["cost","accuracy","noise","trade"].includes(tab);byId("coLabel").hidden=!["accuracy","noise","trade"].includes(tab);byId("metLabel").hidden=byId("idLabel").hidden=tab!=="cases";byId("propertyLabel").hidden=tab!=="trade";byId("gradCountLabel").hidden=byId("gradStartLabel").hidden=tab!=="derivatives";
+    const earlier=["accuracy","seeds"].includes(tab)?"":'<p class="summary"><b>Original PINN schedules.</b> The PINN results or optimizer schedules in this view come from the earlier variable-budget runs. The <a href="#accuracy">Accuracy tab</a> shows the 1,000-update runs, their timings and stage allocations.</p>';
+    byId("content").innerHTML='<section class="panel">'+earlier+({accuracy:showAccuracy,derivatives:showDerivatives,noise:showNoise,cost:showCost,trade:showTrade,cases:showCases,seeds:showSeeds,protocol:showProtocol,architecture:showArchitectures}[tab]())+'</section>';
+    if(tab==="accuracy"&&byId("equalMethod")){byId("equalMethod").onchange=equalBudgetCases;equalBudgetCases();}
     if(tab==="derivatives" && byId("derivativeMethod")) byId("derivativeMethod").onchange=()=>{gradientSelected=byId("derivativeMethod").value;byId("gradientCases").innerHTML=derivativeCases(gradientRows().find(r=>r.method===gradientSelected));};
     if(tab==="architecture") byId("archMethod").onchange=e=>{
         const model=DB.architectures.find(m=>m.slug===e.target.value);

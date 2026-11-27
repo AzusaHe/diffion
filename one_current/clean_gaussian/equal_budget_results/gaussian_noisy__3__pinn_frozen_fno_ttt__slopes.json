@@ -1,0 +1,76 @@
+{
+  "budget": 1000,
+  "stages": {
+    "ttt": 150,
+    "field_prefit": 535,
+    "material_only": 315
+  },
+  "test_s": 2.634288899949752,
+  "train_s": 0.0,
+  "forward_s": 0.0,
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "test_batch": 8,
+  "source_domain": "gaussian_noisy",
+  "material_ids": [
+    2,
+    3,
+    11,
+    21,
+    22,
+    32,
+    37,
+    45
+  ],
+  "current_indices": [
+    [
+      3,
+      0,
+      5
+    ],
+    [
+      2,
+      1,
+      4
+    ],
+    [
+      7,
+      2,
+      4
+    ],
+    [
+      0,
+      2,
+      7
+    ],
+    [
+      4,
+      5,
+      6
+    ],
+    [
+      2,
+      5,
+      6
+    ],
+    [
+      7,
+      5,
+      6
+    ],
+    [
+      7,
+      2,
+      6
+    ]
+  ],
+  "initialization": "fno_ttt",
+  "arm": "slopes",
+  "n_test": 8,
+  "solver_prefit": false,
+  "spatial_derivative_weight": 1.0,
+  "lbfgs_steps": 0,
+  "optimizer": "Adam PINN; FNO + TTT starts include 150 per-material AdamW updates",
+  "allocation": "Largest remainder using the original Adam phase proportions; ties in training order.",
+  "timing": "Includes all PINN stages and the measured forward solve when used. FNO + TTT initialization is accounted separately."
+}

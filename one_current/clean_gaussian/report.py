@@ -7,9 +7,11 @@ from pathlib import Path
 import numpy as np
 
 if __package__:
-    from .derivative_report import build_comparison
+    from .derivative_report import PAIRED, build_comparison
+    from .equal_budget_report import build_equal_budget
 else:
-    from derivative_report import build_comparison
+    from derivative_report import PAIRED, build_comparison
+    from equal_budget_report import build_equal_budget
 
 HERE = Path(__file__).resolve().parent
 DOMAINS = ("clean", "gaussian_noisy")
@@ -26,7 +28,7 @@ PINN_NAMES = dict(standard_c="Standard · c",standard_cv="Standard · c and v",s
          staged_c_w100="Staged · c · w = 100",staged_cv_w1="Staged · c and v · w = 1",
          staged_cv_w100="Staged · c and v · w = 100",data_first="Data-first",fine="Data-first · fine grid",
          data_correction="Data-first + correction",solver_correction="Solver + correction · wᴅ = 0.01",
-         solver_correction_weight1="Solver + correction · wᴅ = 1")
+         solver_correction_weight1="Solver + correction · wᴅ = 1",frozen="Two-stage · frozen fields")
 
 
 def label(s):
@@ -151,6 +153,7 @@ def main(preview=False):
     payload=dict(runs=bank,materials=materials,order=ORDER,names={s:label(s) for s in ORDER},
                  preparation=summary,cnn_prep=costs,seeds=seeds)
     payload["derivatives"] = build_comparison(HERE, materials, bank, errors, label, preview)
+    payload["equal_budget"] = build_equal_budget(HERE, materials, bank, BASE+SOLVER, PILOT, PAIRED, errors, label, preview)
     payload["architectures"] = [
         model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
         for model in read(HERE/filename)
