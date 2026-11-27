@@ -1,0 +1,10 @@
+{
+  "train_s": 0.0,
+  "test_s": 7.779398199985735,
+  "n_train": 0,
+  "device": "cuda",
+  "test_batch": 8,
+  "description": "Independent per-material cv PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. Up to 13 valid frames and 20 bins. Budgeted rerun: {\"steps\": 500, \"lbfgs_iters\": 16, \"fit_steps\": 0, \"fit_lbfgs_iters\": 0, \"lr\": 0.001, \"phi_lr_mult\": 1.0, \"w\": {\"data\": 1.0, \"pde\": 1.0, \"vol\": 1.0, \"bc\": 1.0}}. Includes forward solve, 850 Adam and 30 L-BFGS field-prefit steps, then a frozen-field correction.",
+  "shared_field_fit_s": 1.6787659999681637,
+  "warm_start": "fno_ttt"
+}

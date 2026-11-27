@@ -1,0 +1,14 @@
+{
+  "train_s": 27.153341299970634,
+  "test_s": 0.01829695999622345,
+  "test_batch": 128,
+  "test_repeats": 10,
+  "seed": 0,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "epochs": 100,
+  "parameters": 65851,
+  "device": "NVIDIA GeForce RTX 4090",
+  "description": "Supervised coefficient regression using binned concentration, reconstructed velocity, per-current time, mask and current. Best validation epoch."
+}

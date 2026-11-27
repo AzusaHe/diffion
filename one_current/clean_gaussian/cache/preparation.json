@@ -1,0 +1,12 @@
+{
+  "source_materials": 2000,
+  "eligible": 1947,
+  "index_s": 10.643220699974336,
+  "total_prepare_s": 20.378175599966198,
+  "selected_native_noise_rms": 0.0007465479206926166,
+  "split": {
+    "test": 389,
+    "train": 1402,
+    "val": 156
+  }
+}

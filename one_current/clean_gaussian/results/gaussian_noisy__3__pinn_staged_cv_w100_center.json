@@ -1,0 +1,9 @@
+{
+  "train_s": 0.0,
+  "test_s": 9.673208000021987,
+  "n_train": 0,
+  "device": "cuda",
+  "test_batch": 8,
+  "description": "Independent per-material cv PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. Up to 13 valid frames and 20 bins. Budgeted rerun: {\"steps\": 500, \"lbfgs_iters\": 16, \"fit_steps\": 350, \"warmup_steps\": 100, \"lr\": 0.0001, \"phi_lr_mult\": 10.0, \"w\": {\"vol\": 100.0, \"bc\": 100.0, \"pde\": 100.0}}.",
+  "shared_field_fit_s": 0.0
+}

@@ -11,7 +11,9 @@ import numpy as np
 import torch
 from torch.func import grad, grad_and_value, vmap
 from .gpu_eval import graph_adam, material, prepare_material, replayable
-from solver.dataset import TAU
+
+# Historical 13-frame grid. Alternate observation grids require only PyTorch.
+TAU = (240.0 + 960.0 * np.arange(13)) / 33640.0
 
 N_BINS = 20                                   # bins of the benchmark data (data/train.npz)
 TARGETS_REL = (1e-2, 1e-3, 1e-4)
@@ -202,12 +204,19 @@ class Losses:
 
     def data_loss(self, p, S):
         vs = S["vscale"] if self.hard_bc else None
+        if "times" in S:
+            pred = vmap(lambda io, ts: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(ts))(S["iotas"], S["times"])
+            r = torch.where(S["mask"][..., None], pred-S["y"], 0.)
+            return r.square().sum() / (S["mask"].sum()*self.obs.n_bins)
         pred = vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(self.t_obs))(S["iotas"])
         r = torch.where(S["mask"][None, :, None], pred - S["y"], torch.zeros_like(pred))
         return (r ** 2).sum() / (S["mask"].sum() * S["iotas"].shape[0] * self.obs.n_bins)
 
     def vdata_loss(self, p, S):
         """Mean squared misfit of the v network to v reconstructed from the data, at the cell centres."""
+        if "times" in S:
+            pred = vmap(lambda io, ts: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(ts))(S["iotas"], S["times"])
+            return torch.where(S["vmask"], pred-S["v_obs"], 0.).square().sum()/S["vmask"].sum()
         pred = vmap(lambda io: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(
             self.t_obs))(S["iotas"])
         r = torch.where(S["vmask"], pred - S["v_obs"], torch.zeros_like(pred))
@@ -358,7 +367,7 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
-                obs=None, init_params=None, cache_tag="", return_params=False):
+                obs=None, init_params=None, cache_tag="", return_params=False, observation_stats=None):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -389,10 +398,13 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     obs = obs or OBS_DEFAULT
     LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc, obs=obs)
     LS.use_vdata = bool(fit_v and build == "cv")
-    st = [problem_stats(y, io, res_window, obs) for y, io in zip(ys, iotas)]
+    st = observation_stats if observation_stats is not None else [problem_stats(y, io, res_window, obs) for y, io in zip(ys, iotas)]
     S = {k: torch.tensor(np.stack([s[k] for s in st]), device=device, dtype=torch.bool if k == "mask" else dtype)
          for k in ("y", "mask", "v_obs", "vmask", "iotas", "tmax", "vscale", "st", "sigma", "s_lo")}
     S["vmask"] = S["vmask"].bool()
+    if observation_stats is not None:
+        for key in ("times", "end_times"):
+            S[key] = torch.tensor(np.stack([s[key] for s in st]), device=device, dtype=dtype)
     sizes = [3] + [width] * depth + [1]
     P = []
     for i, (th0, sd) in enumerate(zip(theta0s, seeds)):
@@ -436,6 +448,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             x = torch.zeros(B, S["iotas"].shape[1], 1, device=device, dtype=dtype)
             u = torch.rand(B, S["iotas"].shape[1], n_times, generator=gen, device=device, dtype=dtype)
         lo = S["s_lo"][:, None, None]
+        if "end_times" in S:
+            return x, S["end_times"][:, :, None] * (lo + (1 - lo) * u) ** 2
         return x, S["tmax"][:, None, None] * (lo + (1 - lo) * u) ** 2
 
     logs = [[] for _ in range(B)]

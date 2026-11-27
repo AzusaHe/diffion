@@ -1,0 +1,10 @@
+/cache/*
+!/cache/preparation.json
+!/cache/cnn_clean_prep.json
+!/cache/cnn_gaussian_noisy_prep.json
+!/cache/physics_validation.json
+/learned_checkpoints/
+/learned_seeds/
+/*.log
+/results/*_first8.npz
+/results_seeds/*/*_first8.npz
