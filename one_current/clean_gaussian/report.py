@@ -145,6 +145,10 @@ def main(preview=False):
     costs={d:read(cache/f"cnn_{d}_prep.json")["seconds"] for d in DOMAINS}
     payload=dict(runs=bank,materials=materials,order=ORDER,names={s:label(s) for s in ORDER},
                  preparation=summary,cnn_prep=costs,seeds=seeds)
+    payload["architectures"] = [
+        model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
+        for model in read(HERE/filename)
+    ]
     diag=HERE/"learn_residual_diagnostic.json"
     if diag.exists(): payload["residuals"]=read(diag)
     html=(HERE/"report_template.html").read_text(encoding="utf-8")
