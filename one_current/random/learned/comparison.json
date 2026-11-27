@@ -1,0 +1,404 @@
+{
+  "n_materials": 300,
+  "n_seeds": 3,
+  "aggregation": "mean of the three seed-specific medians",
+  "bootstrap_draws": 2000,
+  "bootstrap_seed": 819,
+  "matched_indices": true,
+  "different_windows": 199,
+  "rank_counts": {
+    "0": 87,
+    "1": 112,
+    "2": 101
+  },
+  "results": {
+    "mlp_supervised": {
+      "D_relL2_pct": {
+        "one_current_observed_window": 6.378174208498887,
+        "one_current_original_window": 11.528242025453677,
+        "three_current_original_window": 9.089678565983021,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          1.633108759999247,
+          3.4536013882505108
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 3.5668059345439342,
+          "1": 6.11407192230912,
+          "2": 10.270863922157892
+        },
+        "one_current_original_window_by_rank": {
+          "0": 20.163769445615667,
+          "1": 9.085954246431696,
+          "2": 10.270863922157892
+        }
+      },
+      "tplus_rmse": {
+        "one_current_observed_window": 0.04524340352331446,
+        "one_current_original_window": 0.06805889395706313,
+        "three_current_original_window": 0.051504327968860765,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.010767180802796672,
+          0.021733713938021045
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.03406294203147011,
+          "1": 0.040761432230189666,
+          "2": 0.05953218159407456
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.09113821124100506,
+          "1": 0.05957780799457859,
+          "2": 0.05953218159407456
+        }
+      },
+      "group_rmse": {
+        "one_current_observed_window": 0.07164670926461393,
+        "one_current_original_window": 0.11067310499301226,
+        "three_current_original_window": 0.07173900965781917,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.030471591798404862,
+          0.05073661810539051
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.06328641602997015,
+          "1": 0.06567768453384766,
+          "2": 0.08895494419335455
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.22517958444276856,
+          "1": 0.09544972993665202,
+          "2": 0.08895494419335455
+        }
+      },
+      "mse_lnD": {
+        "one_current_observed_window": 0.00436598292415581,
+        "one_current_original_window": 0.014167142523868253,
+        "three_current_original_window": 0.009117093466023253,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.003134282093471346,
+          0.007275059580953035
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.0012764120494533696,
+          "1": 0.0038133242020818824,
+          "2": 0.011625908254093374
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.04951786336610961,
+          "1": 0.008836377768324457,
+          "2": 0.011625908254093374
+        }
+      },
+      "mse_tplus": {
+        "one_current_observed_window": 0.00204879318989506,
+        "one_current_original_window": 0.004633940570885532,
+        "three_current_original_window": 0.0026538333523429547,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.001287401981409418,
+          0.002660684453796268
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.0011966176300223007,
+          "1": 0.0016627892286528213,
+          "2": 0.003577327683820037
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.008308044019693343,
+          "1": 0.0035521131629464645,
+          "2": 0.003577327683820037
+        }
+      }
+    },
+    "mlp_ttt": {
+      "D_relL2_pct": {
+        "one_current_observed_window": 3.635663299474224,
+        "one_current_original_window": 9.376147674944278,
+        "three_current_original_window": 6.5526913288599475,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          2.194733754114067,
+          3.585572675946371
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 1.5179289758360277,
+          "1": 4.012217157988208,
+          "2": 7.947380443290399
+        },
+        "one_current_original_window_by_rank": {
+          "0": 15.66339805285182,
+          "1": 6.890726045732291,
+          "2": 7.947380443290399
+        }
+      },
+      "tplus_rmse": {
+        "one_current_observed_window": 0.01965919487360235,
+        "one_current_original_window": 0.05174077295073768,
+        "three_current_original_window": 0.037228529544876675,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.011245669647731356,
+          0.01891965964369817
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.009456644867071984,
+          "1": 0.02254338966521935,
+          "2": 0.04580617822684511
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.0738318351858156,
+          "1": 0.043909027486331666,
+          "2": 0.04580617822684511
+        }
+      },
+      "group_rmse": {
+        "one_current_observed_window": 0.008260425957328036,
+        "one_current_original_window": 0.029499180478595618,
+        "three_current_original_window": 0.013322466075396534,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.010809280661332684,
+          0.020634793531415625
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.003583077243116519,
+          "1": 0.008384940725783592,
+          "2": 0.017335103525174107
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.14229042567439704,
+          "1": 0.018018987851011192,
+          "2": 0.017335103525174107
+        }
+      },
+      "mse_lnD": {
+        "one_current_observed_window": 0.001475392273069509,
+        "one_current_original_window": 0.009075977950542305,
+        "three_current_original_window": 0.004731211842745544,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0031510042169383182,
+          0.005797450358749715
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.00023251975764941008,
+          "1": 0.0017375697952669684,
+          "2": 0.007666398571655779
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.027200339533461917,
+          "1": 0.005832113550736919,
+          "2": 0.007666398571655779
+        }
+      },
+      "mse_tplus": {
+        "one_current_observed_window": 0.0003874013819478912,
+        "one_current_original_window": 0.0026793980621330274,
+        "three_current_original_window": 0.0013882991472729655,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.000987681793068707,
+          0.0018008413893799995
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 8.946904475517601e-05,
+          "1": 0.0005115020467317939,
+          "2": 0.002100874634544073
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.005461011486419466,
+          "1": 0.001929829302165741,
+          "2": 0.002100874634544073
+        }
+      }
+    },
+    "fno_supervised": {
+      "D_relL2_pct": {
+        "one_current_observed_window": 5.825650243963994,
+        "one_current_original_window": 10.737606167625437,
+        "three_current_original_window": 8.393017642493147,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          1.4051067211666353,
+          3.0165966180137525
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 2.8340461659375755,
+          "1": 5.377462915135719,
+          "2": 10.544112517984447
+        },
+        "one_current_original_window_by_rank": {
+          "0": 16.838396429332388,
+          "1": 8.346349380490553,
+          "2": 10.544112517984447
+        }
+      },
+      "tplus_rmse": {
+        "one_current_observed_window": 0.02804075435321139,
+        "one_current_original_window": 0.05699385787847014,
+        "three_current_original_window": 0.04539508305602702,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0076371992017166095,
+          0.016264710221899018
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.014190638650278165,
+          "1": 0.025451915914556505,
+          "2": 0.05100518198248541
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.07451822500464354,
+          "1": 0.04669452599821383,
+          "2": 0.05100518198248541
+        }
+      },
+      "group_rmse": {
+        "one_current_observed_window": 0.05268265168878558,
+        "one_current_original_window": 0.08352043930109283,
+        "three_current_original_window": 0.05603380367365057,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.02203807511194086,
+          0.035892465725435356
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.035266506746588155,
+          "1": 0.04609492311185678,
+          "2": 0.07745895737434352
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.16009110551759778,
+          "1": 0.06897530368950837,
+          "2": 0.07745895737434352
+        }
+      },
+      "mse_lnD": {
+        "one_current_observed_window": 0.0035588530816976264,
+        "one_current_original_window": 0.012311407032295637,
+        "three_current_original_window": 0.008189786648942932,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0024976623885340473,
+          0.006331632024163535
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.0007788190498716866,
+          "1": 0.0028849268612427866,
+          "2": 0.011936740646351576
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.030196061016326426,
+          "1": 0.00738823250115931,
+          "2": 0.011936740646351576
+        }
+      },
+      "mse_tplus": {
+        "one_current_observed_window": 0.0007881235332638314,
+        "one_current_original_window": 0.003251863284487396,
+        "three_current_original_window": 0.002061396920385849,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0007672021282771675,
+          0.0017318059477640104
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.0002026381014668076,
+          "1": 0.0006507471786513227,
+          "2": 0.0026026248978898835
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.005553984991926035,
+          "1": 0.002198713787558266,
+          "2": 0.0026026248978898835
+        }
+      }
+    },
+    "fno_ttt": {
+      "D_relL2_pct": {
+        "one_current_observed_window": 2.881054120903739,
+        "one_current_original_window": 7.985814154186397,
+        "three_current_original_window": 5.477390180231502,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          1.6273661603588958,
+          3.291660923923599
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 1.0040397499283225,
+          "1": 3.2653168656230793,
+          "2": 6.643506060295945
+        },
+        "one_current_original_window_by_rank": {
+          "0": 14.670203525024187,
+          "1": 5.479361756827372,
+          "2": 6.643506060295945
+        }
+      },
+      "tplus_rmse": {
+        "one_current_observed_window": 0.01585155238877755,
+        "one_current_original_window": 0.04415929121043483,
+        "three_current_original_window": 0.03166984447511771,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.008967122979536762,
+          0.017157867312473988
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.006629378768988124,
+          "1": 0.017415219497582093,
+          "2": 0.03833045039044449
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.0671915324350279,
+          "1": 0.036180810893452486,
+          "2": 0.03833045039044449
+        }
+      },
+      "group_rmse": {
+        "one_current_observed_window": 0.007911249651039405,
+        "one_current_original_window": 0.022289005727192227,
+        "three_current_original_window": 0.012505273640324532,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.006447759635003218,
+          0.015246910604479413
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.004339245915644624,
+          "1": 0.00800465807703474,
+          "2": 0.01679837743301895
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.150411641115737,
+          "1": 0.014603019298382758,
+          "2": 0.01679837743301895
+        }
+      },
+      "mse_lnD": {
+        "one_current_observed_window": 0.0008650686691238991,
+        "one_current_original_window": 0.006840932900396147,
+        "three_current_original_window": 0.003486107559083697,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0024373387731646246,
+          0.004431280941117906
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 0.00010136843738629,
+          "1": 0.001085539760684905,
+          "2": 0.005569472130610057
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.021900543150302255,
+          "1": 0.003501011943458577,
+          "2": 0.005569472130610057
+        }
+      },
+      "mse_tplus": {
+        "one_current_observed_window": 0.0002514231040700678,
+        "one_current_original_window": 0.001950446028241018,
+        "three_current_original_window": 0.0010029906862373884,
+        "one_minus_three_original_window_95pct_material_bootstrap": [
+          0.0006636196407743727,
+          0.0013737488478189352
+        ],
+        "one_current_observed_window_by_rank": {
+          "0": 4.413643527487477e-05,
+          "1": 0.0003038066286893925,
+          "2": 0.0014697380014701098
+        },
+        "one_current_original_window_by_rank": {
+          "0": 0.0045177455814495926,
+          "1": 0.0013102521307600536,
+          "2": 0.0014697380014701098
+        }
+      }
+    }
+  }
+}

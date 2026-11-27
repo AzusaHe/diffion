@@ -2,6 +2,8 @@
 
 CBE 236 project: physics-informed inference of electrolyte transport properties. Differentiable solvers and inverse methods for ion transport recover the diffusion coefficient $D(c)$ and the transference number $t_+(c)$ from measurements of the salt concentration $c(x,t)$ in a cell under constant current.
 
+The [one- versus three-current benchmark](one_current/README.md) compares 34 model and initialization configurations on matched materials. It includes an offline explorer, per-material scores, and a figure book.
+
 $$
 \frac{\partial c}{\partial t} + \frac{\partial (q + c v)}{\partial x} = 0, \qquad
 q = -D(c)\,\alpha(c)\,\frac{\partial c}{\partial x} + t_+(c)\,\iota, \qquad
