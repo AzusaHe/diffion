@@ -185,13 +185,18 @@ class Losses:
     """Per-fit loss functions (one material, unbatched) with the shared constants bound in."""
 
     def __init__(self, build, dtype, device, n_res=1024, n_times=32, n_cells=32, w=None, residual="strong",
-                 hard_bc=False, n_fv_times=32, obs=OBS_DEFAULT):
+                 hard_bc=False, n_fv_times=32, obs=OBS_DEFAULT, spatial_derivative_weight=0.0):
         self.build, self.n_res, self.n_times, self.n_cells = build, n_res, n_times, n_cells
         self.w = dict(data=1.0, vdata=1.0, pde=100.0, vol=100.0, bc=100.0, prior=0.0) | (w or {})
         self.residual, self.hard_bc, self.n_fv_times = residual, hard_bc, n_fv_times
         if build == "c" and (hard_bc or residual != "strong"):
             raise ValueError("--hard-bc and --residual fv are for Build 1 (cv) only")
         self.use_vdata = False                                  # set by train_batch (fit_v, Build 1 only)
+        self.spatial_derivative_weight = float(spatial_derivative_weight)
+        if not math.isfinite(self.spatial_derivative_weight) or self.spatial_derivative_weight < 0:
+            raise ValueError("spatial_derivative_weight must be finite and nonnegative")
+        if self.spatial_derivative_weight and (build != "cv" or obs.n_bins < 2):
+            raise ValueError("Observed c and v slopes require a cv network and at least two spatial bins")
         self.obs = obs
         self.XC = torch.tensor((np.arange(obs.n_bins) + 0.5) / obs.n_bins, dtype=dtype, device=device)
         self.XB, self.WB = bin_points(dtype, device, obs)
@@ -202,32 +207,79 @@ class Losses:
         c = vmap(lambda x: c_point(p, x, t, io, tmax, vs))(self.XB)
         return (c * self.WB).reshape(self.obs.n_bins, self.obs.n_gauss).sum(1)
 
-    def data_loss(self, p, S):
+    def c_observations(self, p, S):
         vs = S["vscale"] if self.hard_bc else None
         if "times" in S:
-            pred = vmap(lambda io, ts: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(ts))(S["iotas"], S["times"])
+            return vmap(lambda io, ts: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(ts))(S["iotas"], S["times"])
+        return vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(self.t_obs))(S["iotas"])
+
+    def data_loss(self, p, S, pred=None):
+        if pred is None:
+            pred = self.c_observations(p, S)
+        if "times" in S:
             r = torch.where(S["mask"][..., None], pred-S["y"], 0.)
             return r.square().sum() / (S["mask"].sum()*self.obs.n_bins)
-        pred = vmap(lambda io: vmap(lambda t: self.bin_average(p, t, io, S["tmax"], vs))(self.t_obs))(S["iotas"])
         r = torch.where(S["mask"][None, :, None], pred - S["y"], torch.zeros_like(pred))
         return (r ** 2).sum() / (S["mask"].sum() * S["iotas"].shape[0] * self.obs.n_bins)
 
-    def vdata_loss(self, p, S):
-        """Mean squared misfit of the v network to v reconstructed from the data, at the cell centres."""
+    def v_observations(self, p, S):
         if "times" in S:
-            pred = vmap(lambda io, ts: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(ts))(S["iotas"], S["times"])
-            return torch.where(S["vmask"], pred-S["v_obs"], 0.).square().sum()/S["vmask"].sum()
-        pred = vmap(lambda io: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(
+            return vmap(lambda io, ts: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(ts))(S["iotas"], S["times"])
+        return vmap(lambda io: vmap(lambda t: vmap(lambda x: v_point(p, x, t, io, S["tmax"], S["vscale"]))(self.XC))(
             self.t_obs))(S["iotas"])
+
+    def vdata_loss(self, p, S, pred=None):
+        """Mean squared misfit of the v network to v reconstructed from the data, at the cell centres."""
+        if pred is None:
+            pred = self.v_observations(p, S)
+        if "times" in S:
+            return torch.where(S["vmask"], pred-S["v_obs"], 0.).square().sum()/S["vmask"].sum()
         r = torch.where(S["vmask"], pred - S["v_obs"], torch.zeros_like(pred))
         return (r ** 2).sum() / S["vmask"].sum()
 
-    def data_total(self, p, S):
-        """Stage-1 objective (and the data part of the total loss): c misfit / sigma^2 (+ v misfit / sigma_v^2)."""
-        L = self.data_loss(p, S) / S["sigma"] ** 2
+    def mean_square_difference(self, values, valid):
+        """Mean square adjacent-bin difference over pairs with both endpoints present."""
+        valid = valid.expand_as(values)
+        pairs = valid[..., :-1] & valid[..., 1:]
+        diff = torch.where(pairs, values[..., 1:] - values[..., :-1], 0.)
+        return diff.square().sum() / pairs.sum().clamp_min(1)
+
+    def observed_terms(self, p, S):
+        c = self.c_observations(p, S)
+        terms = {"data": self.data_loss(p, S, c) / S["sigma"] ** 2}
+        if self.use_vdata or self.spatial_derivative_weight:
+            v = self.v_observations(p, S)
+            v_sigma = 1e-3 * S["vscale"]
+            if self.use_vdata:
+                terms["vdata"] = self.vdata_loss(p, S, v) / v_sigma ** 2
+            if self.spatial_derivative_weight:
+                # h cancels between the finite difference slope and its reference scale sqrt(2)*sigma/h.
+                terms["c_slope"] = self.mean_square_difference(c - S["y"], S["mask"][..., None]) / (2 * S["sigma"] ** 2)
+                terms["v_slope"] = self.mean_square_difference(v - S["v_obs"], S["vmask"]) / (2 * v_sigma ** 2)
+        return terms
+
+    def spatial_derivative_metrics(self, p, S):
+        """RMSE per unit of dimensionless space; relative RMSE uses the observed slope RMS."""
+        result = {}
+        for field, pred, target, mask in (("c", self.c_observations(p, S), S["y"], S["mask"][..., None]),
+                                           ("v", self.v_observations(p, S), S["v_obs"], S["vmask"])):
+            error = self.mean_square_difference(pred - target, mask).sqrt()
+            reference = self.mean_square_difference(target, mask).sqrt()
+            result[field + "_slope_rmse"] = self.obs.n_bins * error
+            result[field + "_slope_rel_rmse"] = torch.where(reference > 0, error / reference, float("nan"))
+        return result
+
+    def observation_objective(self, terms, v_weight=1.0):
+        value = terms["data"]
         if self.use_vdata:
-            L = L + self.vdata_loss(p, S) / (1e-3 * S["vscale"]) ** 2
-        return L
+            value = value + v_weight * terms["vdata"]
+        if self.spatial_derivative_weight:
+            value = value + self.spatial_derivative_weight * (terms["c_slope"] + terms["v_slope"])
+        return value
+
+    def data_total(self, p, S):
+        """Stage-1 field fitting on the requested values and observed spatial slopes."""
+        return self.observation_objective(self.observed_terms(p, S))
 
     def loss_cv(self, p, S, x, t):
         th = torch.sigmoid(p["phi"])
@@ -249,13 +301,10 @@ class Losses:
         tb = t[:, :256]
         wall = vmap(lambda ts, io: vmap(lambda b: torch.stack([J_point(torch.zeros_like(b), b, io) - io,
                                                                J_point(torch.ones_like(b), b, io) - io]))(ts))(tb, S["iotas"])
-        L = dict(data=self.data_loss(p, S) / S["sigma"] ** 2, pde=(rc ** 2).mean() / S["st"] ** 2,
+        L = dict(self.observed_terms(p, S), pde=(rc ** 2).mean() / S["st"] ** 2,
                  vol=(rv ** 2).mean() / (vs * S["st"]) ** 2, bc=(wall ** 2).mean() / (S["iotas"] ** 2).mean())
         w = self.w
-        data = L["data"]
-        if self.use_vdata:
-            L["vdata"] = self.vdata_loss(p, S) / (1e-3 * vs) ** 2
-            data = data + w["vdata"] * L["vdata"]              # w_vdata: weight of the v part (stage 2 and 3)
+        data = self.observation_objective(L, w["vdata"])
         return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def loss_cv_fv(self, p, S, t, th, J_point, hb):
@@ -286,13 +335,10 @@ class Losses:
 
         ts = t[:, :self.n_fv_times]
         rc, rv, wall = vmap(lambda tt, io: vmap(lambda b: line(b, io))(tt))(ts, S["iotas"])
-        L = dict(data=self.data_loss(p, S) / S["sigma"] ** 2, pde=(rc ** 2).mean() / S["st"] ** 2,
+        L = dict(self.observed_terms(p, S), pde=(rc ** 2).mean() / S["st"] ** 2,
                  vol=(rv ** 2).mean() / (vs * S["st"]) ** 2, bc=(wall ** 2).mean() / (S["iotas"] ** 2).mean())
         w = self.w
-        data = L["data"]
-        if self.use_vdata:
-            L["vdata"] = self.vdata_loss(p, S) / (1e-3 * vs) ** 2
-            data = data + w["vdata"] * L["vdata"]              # w_vdata: weight of the v part (stage 2 and 3)
+        data = self.observation_objective(L, w["vdata"])
         return w["data"] * data + w["pde"] * L["pde"] + w["vol"] * L["vol"] + w["bc"] * L["bc"], L
 
     def build2_line(self, p, th, t, io, S):
@@ -367,7 +413,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 dtype=torch.float64, rng_seed=0, n_res=1024, n_times=32, n_cells=32, progress=None,
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
-                obs=None, init_params=None, cache_tag="", return_params=False, observation_stats=None):
+                obs=None, init_params=None, cache_tag="", return_params=False, observation_stats=None,
+                spatial_derivative_weight=0.0, evaluate_spatial_derivatives=False):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -378,6 +425,11 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     freeze: networks ("c", "v") held fixed after stage 1; freeze=("c", "v") leaves only theta to the physics;
             "phi" holds theta fixed too (e.g. freeze=("c", "phi") trains only v).
     w["vdata"] (default 1) weights the v part of the data term in stages 2 and 3 (stage 1 is unchanged).
+    spatial_derivative_weight: add this multiple of the two observed spatial slope losses inside the data
+             objective in all trained stages. Set to 1 to weight each noise-scaled slope loss equally to
+             its standardized value loss. Slopes of v use the reconstructed velocity even if fit_v=False.
+    evaluate_spatial_derivatives: return c/v_slope_rmse and c/v_slope_rel_rmse on the fitted observations.
+             Enabled automatically for positive spatial_derivative_weight.
     return_params: also return the final parameters (stacked over fits): (results, params).
     residual: "strong" (pointwise PDE residuals) or "fv" (integral form on cells, Build 1; see loss_cv_fv).
     hard_bc: wall fluxes built into the c network (Build 1; see c_point).  c then depends on theta, so stage 1
@@ -396,7 +448,11 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     B = len(ys)
     prepare_material(device, dtype)
     obs = obs or OBS_DEFAULT
-    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc, obs=obs)
+    LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc, obs=obs,
+                spatial_derivative_weight=spatial_derivative_weight)
+    evaluate_slopes = evaluate_spatial_derivatives or LS.spatial_derivative_weight > 0
+    if evaluate_slopes and (build != "cv" or obs.n_bins < 2):
+        raise ValueError("Observed c and v slopes require a cv network and at least two spatial bins")
     LS.use_vdata = bool(fit_v and build == "cv")
     st = observation_stats if observation_stats is not None else [problem_stats(y, io, res_window, obs) for y, io in zip(ys, iotas)]
     S = {k: torch.tensor(np.stack([s[k] for s in st]), device=device, dtype=torch.bool if k == "mask" else dtype)
@@ -571,6 +627,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     stopped = False
     cache = Path(prefit_cache) if prefit_cache and not hard_bc else None
     tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
+    if LS.spatial_derivative_weight:
+        tag += f"_slope{LS.spatial_derivative_weight!r}"
     if obs is not OBS_DEFAULT:                                   # never mix stage-1 fits of different data grids
         tag += f"_g{len(obs.t)}x{obs.n_bins}"
     tag += cache_tag
@@ -621,6 +679,12 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                  phi_lr_mult=phi_lr_mult, schedule=sched, stage_wall_s=stage_wall, stopped_by_wall=stopped,
                  v_scale=st[b]["vscale"], s_t=st[b]["st"], sigma=st[b]["sigma"], s_lo=st[b]["s_lo"],
                  device=str(device), dtype=str(dtype).replace("torch.", ""), batch=B, log=logs[b]) for b in range(B)]
+    if evaluate_slopes:
+        sched["spatial_derivative_weight"] = LS.spatial_derivative_weight
+        with torch.no_grad():
+            metrics = {k: z.cpu().tolist() for k, z in vmap(LS.spatial_derivative_metrics)(params, S).items()}
+        for b, row in enumerate(out):
+            row.update({k: z[b] for k, z in metrics.items()})
     if return_params:
         return out, params
     return out

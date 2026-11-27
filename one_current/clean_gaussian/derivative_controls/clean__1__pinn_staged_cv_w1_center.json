@@ -1,0 +1,73 @@
+{
+  "train_s": 0.0,
+  "test_s": 2.6487085999688134,
+  "n_train": 0,
+  "device": "cuda",
+  "test_batch": 8,
+  "description": "Independent per-material cv PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. Up to 13 valid frames and 20 bins. Budgeted rerun: {\"steps\": 500, \"lbfgs_iters\": 16, \"fit_steps\": 350, \"warmup_steps\": 100, \"lr\": 0.0001, \"phi_lr_mult\": 10.0, \"w\": {\"vol\": 1.0, \"bc\": 1.0, \"pde\": 1.0}}.",
+  "shared_field_fit_s": 0.0,
+  "spatial_derivative_weight": 0.0,
+  "weights": {
+    "data": 1.0,
+    "vdata": 1.0,
+    "pde": 1.0,
+    "vol": 1.0,
+    "bc": 1.0,
+    "prior": 0.0
+  },
+  "schedule": {
+    "fit_steps": 350,
+    "fit_lr": 0.001,
+    "fit_lbfgs_iters": 0,
+    "fit_v": false,
+    "freeze": [],
+    "residual": "strong",
+    "hard_bc": false,
+    "warmup_steps": 100,
+    "joint_steps": 500,
+    "lr": 0.0001,
+    "phi_lr_mult": 10.0,
+    "lbfgs_iters": 16,
+    "lbfgs_memory": 20,
+    "spatial_derivative_weight": 0.0
+  },
+  "c_derivative_target": "adjacent differences of observed concentration bin means",
+  "v_derivative_target": "adjacent differences of velocity reconstructed from observed concentration",
+  "current_indices": [
+    [
+      3
+    ],
+    [
+      2
+    ],
+    [
+      7
+    ],
+    [
+      0
+    ],
+    [
+      4
+    ],
+    [
+      2
+    ],
+    [
+      7
+    ],
+    [
+      7
+    ]
+  ],
+  "material_ids": [
+    2,
+    3,
+    11,
+    21,
+    22,
+    32,
+    37,
+    45
+  ],
+  "gpu": "NVIDIA GeForce RTX 4090"
+}

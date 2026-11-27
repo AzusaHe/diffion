@@ -1,0 +1,95 @@
+{
+  "train_s": 0.0,
+  "test_s": 8.256102200015448,
+  "n_train": 0,
+  "device": "cuda",
+  "test_batch": 8,
+  "description": "Independent per-material cv PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. Up to 13 valid frames and 20 bins. Budgeted rerun: {\"steps\": 500, \"lbfgs_iters\": 16, \"fit_steps\": 0, \"fit_lbfgs_iters\": 0, \"lr\": 0.001, \"phi_lr_mult\": 1.0, \"w\": {\"data\": 0.01, \"pde\": 1.0, \"vol\": 1.0, \"bc\": 1.0}}. Includes a data-first PINN followed by a frozen-field correction.",
+  "shared_field_fit_s": 3.848119099973701,
+  "warm_start": "fno_ttt",
+  "spatial_derivative_weight": 1.0,
+  "weights": {
+    "data": 0.01,
+    "vdata": 1.0,
+    "pde": 1.0,
+    "vol": 1.0,
+    "bc": 1.0,
+    "prior": 0.0
+  },
+  "schedule": {
+    "fit_steps": 0,
+    "fit_lr": 0.001,
+    "fit_lbfgs_iters": 0,
+    "fit_v": true,
+    "freeze": [
+      "c",
+      "v",
+      "ms"
+    ],
+    "residual": "strong",
+    "hard_bc": false,
+    "warmup_steps": 0,
+    "joint_steps": 500,
+    "lr": 0.001,
+    "phi_lr_mult": 1.0,
+    "lbfgs_iters": 16,
+    "lbfgs_memory": 20,
+    "spatial_derivative_weight": 1.0
+  },
+  "c_derivative_target": "adjacent differences of observed concentration bin means",
+  "v_derivative_target": "adjacent differences of velocity reconstructed from observed concentration",
+  "current_indices": [
+    [
+      3,
+      0,
+      5
+    ],
+    [
+      2,
+      1,
+      4
+    ],
+    [
+      7,
+      2,
+      4
+    ],
+    [
+      0,
+      2,
+      7
+    ],
+    [
+      4,
+      5,
+      6
+    ],
+    [
+      2,
+      5,
+      6
+    ],
+    [
+      7,
+      5,
+      6
+    ],
+    [
+      7,
+      2,
+      6
+    ]
+  ],
+  "material_ids": [
+    2,
+    3,
+    11,
+    21,
+    22,
+    32,
+    37,
+    45
+  ],
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "field_source": "cache/derivative_fields/gaussian_noisy__3__data__0.pt"
+}

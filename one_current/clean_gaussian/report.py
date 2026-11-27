@@ -6,6 +6,11 @@ from pathlib import Path
 
 import numpy as np
 
+if __package__:
+    from .derivative_report import build_comparison
+else:
+    from derivative_report import build_comparison
+
 HERE = Path(__file__).resolve().parent
 DOMAINS = ("clean", "gaussian_noisy")
 BASE = ["mlp","mlp_ttt","fno","fno_ttt","cnn"]
@@ -145,6 +150,7 @@ def main(preview=False):
     costs={d:read(cache/f"cnn_{d}_prep.json")["seconds"] for d in DOMAINS}
     payload=dict(runs=bank,materials=materials,order=ORDER,names={s:label(s) for s in ORDER},
                  preparation=summary,cnn_prep=costs,seeds=seeds)
+    payload["derivatives"] = build_comparison(HERE, materials, bank, errors, label, preview)
     payload["architectures"] = [
         model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
         for model in read(HERE/filename)
@@ -154,7 +160,8 @@ def main(preview=False):
     html=(HERE/"report_template.html").read_text(encoding="utf-8")
     data=json.dumps(payload,allow_nan=False,ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     report=HERE/("cache/report_preview.html" if preview else "Clean_Gaussian_Benchmark.html")
-    report.write_text(html.replace("__BENCHMARK_DATA__",data),encoding="utf-8")
+    derivative_view = (HERE / "derivative_view.js").read_text(encoding="utf-8")
+    report.write_text(html.replace("__DERIVATIVE_VIEW__", derivative_view).replace("__BENCHMARK_DATA__",data),encoding="utf-8")
     if not preview:
         with (HERE/"accuracy_cost.csv").open("w",encoding="utf-8",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=list(summaries[0]));writer.writeheader();writer.writerows(summaries)

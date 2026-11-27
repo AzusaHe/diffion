@@ -98,10 +98,18 @@ def make_corrections(params, stats, grid, device):
     return corrected
 
 
-def fit(domain,ncur,method,start,device):
+def fit(domain,ncur,method,start,device,*,derivative_weight=None,force=False):
     slug="pinn_"+method+"_"+start
-    stem=OUT/f"{domain}__{ncur}__{slug}"
-    if stem.with_suffix(".json").exists(): return True
+    out=OUT if derivative_weight is None else HERE/("derivative_results" if derivative_weight else "derivative_controls")
+    out.mkdir(exist_ok=True)
+    stem=out/f"{domain}__{ncur}__{slug}"
+    if derivative_weight is None:
+        weightsdir=CACHE/"pinn_fields"
+    else:
+        weightsdir=CACHE/("derivative_fields" if derivative_weight else "derivative_control_fields")
+    needs_field=(derivative_weight is not None and method=="data_first" and start=="fno_ttt"
+                 and not (weightsdir/f"{domain}__{ncur}__data__0.pt").exists())
+    if stem.with_suffix(".json").exists() and not force and not needs_field: return True
     with np.load(CACHE/"binned.npz") as a:
         sel=np.flatnonzero(a["split"]=="test")[:8]
         ids=a["ids"][sel]; ions=a["iota"][sel,:ncur]; picks=a["chosen"][sel,:ncur]
@@ -127,13 +135,18 @@ def fit(domain,ncur,method,start,device):
         weight=float(method.split("_w")[1])
         kwargs.update(fit_steps=350,warmup_steps=100,steps=500,lr=1e-4,phi_lr_mult=10.,lbfgs_iters=16,
                       w=dict(vol=weight,bc=weight,pde=weight))
-    if method in ("data_first","data_correction","fine"):
+    if method in ("data_first","data_correction","fine","frozen"):
         kwargs.update(fit_steps=850,fit_lbfgs_iters=30,fit_v=True,steps=500,lr=1e-4,phi_lr_mult=10.,
                       lbfgs_iters=16,w=dict(data=.01,pde=1.,vol=1.,bc=1.))
+    if method=="frozen":
+        kwargs["freeze"]=("c","v")
+    if derivative_weight is not None:
+        kwargs.update(spatial_derivative_weight=derivative_weight,evaluate_spatial_derivatives=True)
     start_time=time.perf_counter()
     base_s=0.
     estimates=[]
-    weightsdir=CACHE/"pinn_fields"
+    diagnostics={key:[] for key in ("c_slope_rmse","v_slope_rmse","c_slope_rel_rmse","v_slope_rel_rmse",
+                                    "rel_rmse","v_rel_rmse","steps","evals")}
     weightsdir.mkdir(exist_ok=True)
     for k in range(0,len(ids),chunk):
         sl=slice(k,min(k+chunk,len(ids))); stats=[statistics(c,io,t) for c,io,t in zip(y[sl],ions[sl],times[sl])]
@@ -141,7 +154,14 @@ def fit(domain,ncur,method,start,device):
             return engine.train_batch(y[sl],ions[sl],th,build,ids[sl],observation_stats=sem,return_params=True,**opts)
         options=kwargs.copy()
         if solver or method=="data_correction":
-            wfile=weightsdir/f"{domain}__{ncur}__{'solver' if solver else 'data'}__{k}.pt"
+            # The solver seed is the original fixed forward solution. Observed slopes
+            # supervise the correction only. Data-seeded bases inherit their arm's loss.
+            basedir=CACHE/"pinn_fields" if solver else weightsdir
+            wfile=basedir/f"{domain}__{ncur}__{'solver' if solver else 'data'}__{k}.pt"
+            if not solver and not wfile.exists() and derivative_weight is not None:
+                if not fit(domain,ncur,"data_first",start,device,derivative_weight=derivative_weight,force=True):
+                    return False
+                start_time=time.perf_counter()  # the checkpoint records the shared base cost
             if not wfile.exists():
                 if not solver: return False
                 with np.load(fieldfile) as f:
@@ -151,6 +171,8 @@ def fit(domain,ncur,method,start,device):
                     field_s=float(f["elapsed_s"])
                 source_stats=[statistics(c,io,t) for c,io,t in zip(synth,ions[sl],times[sl])]
                 pre=kwargs|dict(fit_steps=850,fit_lbfgs_iters=30,fit_v=True,steps=0)
+                pre.pop("spatial_derivative_weight",None)
+                pre.pop("evaluate_spatial_derivatives",None)
                 tick=time.perf_counter()
                 _,params=train(theta0[sl],pre,source_stats)
                 # Base solver prefit is shared between the two correction weight settings.
@@ -169,15 +191,33 @@ def fit(domain,ncur,method,start,device):
                 torch.save(dict(params=params,theta=np.array([r["theta"] for r in rows]),seconds=time.perf_counter()-tick),
                            weightsdir/f"{domain}__{ncur}__data__{k}.pt")
         estimates.extend(r["theta"] for r in rows)
+        if derivative_weight is not None:
+            schedule=rows[0]["schedule"]
+            expected_steps=sum(schedule[key] for key in ("fit_steps","fit_lbfgs_iters","warmup_steps","joint_steps","lbfgs_iters"))
+            if any(row["stopped_by_wall"] or row["steps"]!=expected_steps for row in rows):
+                raise RuntimeError(f"Incomplete optimizer budget for {stem}")
+            for key,values in diagnostics.items():
+                values.extend(row[key] for row in rows)
     wall=time.perf_counter()-start_time+base_s
     assert np.isfinite(estimates).all()
-    np.savez(stem.with_suffix(".npz"),ids=ids,theta=estimates,lo=np.nanmin(y,axis=(1,2,3)),hi=np.nanmax(y,axis=(1,2,3)))
+    extra={}
+    if derivative_weight is not None:
+        extra.update(diagnostics)
+        for key,value in extra.items():
+            if not np.isfinite(value).all(): raise ValueError(f"{stem}: nonfinite {key}")
+    np.savez(stem.with_suffix(".npz"),ids=ids,theta=estimates,lo=np.nanmin(y,axis=(1,2,3)),hi=np.nanmax(y,axis=(1,2,3)),**extra)
     stages={k:v for k,v in options.items() if k in ("fit_steps","fit_lbfgs_iters","warmup_steps","steps","lbfgs_iters","lr","phi_lr_mult","w")}
     md=dict(train_s=0.,test_s=wall,n_train=0,device=device,test_batch=chunk,
             description=f"Independent per-material {build} PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. "+
                         ("Up to 104 valid frames and 40 bins. " if not coarse else "Up to 13 valid frames and 20 bins. ")+
                         f"Budgeted rerun: {json.dumps(stages)}.",shared_field_fit_s=base_s)
     if start!="center": md["warm_start"]=start
+    if derivative_weight is not None:
+        md.update(spatial_derivative_weight=derivative_weight,weights=rows[0]["weights"],schedule=rows[0]["schedule"],
+                  c_derivative_target="adjacent differences of observed concentration bin means",
+                  v_derivative_target="adjacent differences of velocity reconstructed from observed concentration",
+                  current_indices=picks.tolist(),material_ids=ids.tolist(),gpu=torch.cuda.get_device_name(device) if str(device).startswith("cuda") else "CPU")
+        if method=="data_correction" or solver: md["field_source"]=wfile.relative_to(HERE).as_posix()
     if method=="data_correction": md["description"]+=" Includes a data-first PINN followed by a frozen-field correction."
     if solver: md["description"]+=" Includes forward solve, 850 Adam and 30 L-BFGS field-prefit steps, then a frozen-field correction."
     stem.with_suffix(".json").write_text(json.dumps(md,indent=2))

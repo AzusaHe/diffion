@@ -24,7 +24,24 @@ foreach ($domain in "clean","gaussian_noisy") {
     python "$bench/cnn_pinn.py" $domain 1 --device cpu
     python "$bench/cnn_pinn.py" $domain 3 --device cuda
 }
+python "$bench/derivative_benchmark.py"
+python "$bench/derivative_physics.py"
 python "$bench/report.py"
 ```
 
 Predictions in `results` use `DOMAIN__CURRENT_COUNT__METHOD` names. Each NPZ stores the material IDs, eight inferred unit-interval coefficients, and observed dimensionless concentration bounds. Each companion JSON records timing and settings. Raw numerical timings are individual worker wall times. Batched neural timings are divided by the evaluated cohort size in the report. Learned warm-start costs appear separately from the final fit in the CSV download.
+
+## Observed spatial derivative experiment
+
+Open **Derivative loss** in the HTML report to compare c/v networks fitted with and without observed spatial slope targets. Both arms use the same eight held-out materials, selected currents, field architectures, optimizer schedules, and per-material concentration intervals. Standard and staged controls fit concentration values. Data-first, fine-grid and correction controls also use velocity values reconstructed from observed concentration. The new frozen-field two-stage variant fits c and reconstructed v, then holds the two networks fixed while fitting the eight material properties.
+
+After generating the original benchmark inputs, the commands below rerun this experiment from the repository root. Use `--force` to rebuild the field checkpoints as well as the reported predictions when result files already exist.
+
+```powershell
+$bench = "one_current/clean_gaussian"
+python "$bench/derivative_benchmark.py" --force
+python "$bench/derivative_physics.py"
+python "$bench/report.py"
+```
+
+`derivative_controls` and `derivative_results` contain the matched predictions and timings. `derivative_accuracy_cost.csv` gives one row per condition. The HTML tab also exports individual material pairs, including observed concentration bounds, property errors, fitted value errors, and spatial slope RMSEs. The fixed-field diagnostic uses fresh residual points to score fitted and true properties on exactly the same learned fields.
