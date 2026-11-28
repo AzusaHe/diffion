@@ -1,0 +1,23 @@
+{
+  "train_s": 0.0,
+  "test_s": 1640.043496600003,
+  "n_train": 0,
+  "n_test": 1,
+  "warm_start": "cnn",
+  "description": "Staged CNN-initialized PINN, full valid observations, material 2 only. 1,000 field-only, 2,000 physics warmup, 4,000 joint AdamW steps and up to 100 optional L-BFGS iterations. Rejected cases use the finite terminal joint checkpoint for diagnosis.",
+  "device": "CPU",
+  "gate_status": "accepted",
+  "gate_accepted": true,
+  "checkpoint": "final_checkpoint.pt",
+  "cnn_init_s": 0.13847879995591938,
+  "current_indices": [
+    3
+  ],
+  "currents_iota": [
+    2.2285274508997333
+  ],
+  "field_steps": 1000,
+  "warmup_steps": 2000,
+  "joint_steps": 4000,
+  "max_lbfgs_steps": 100
+}

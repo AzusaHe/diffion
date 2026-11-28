@@ -1,0 +1,13 @@
+{
+  "n": 8,
+  "method": "solver_correction_weight1",
+  "start": "fno_ttt",
+  "median_fit": {
+    "D_relL2_pct": 6.7182537362904124,
+    "tplus_rmse": 0.018650047172240645,
+    "group_rmse": 0.04929415729758979,
+    "mse_lnD": 0.005190842894800989,
+    "mse_tplus": 0.0003894909073909091
+  },
+  "median_relative_c_rmse": 0.0001704945431335106
+}

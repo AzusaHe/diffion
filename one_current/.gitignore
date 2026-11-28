@@ -1,0 +1,19 @@
+# Preliminary high-current run. Its drivers are shared with the final run.
+/data/
+/learned/fno_s*/
+/learned/mlp_s*/
+/learned/select_*.json
+/legacy/data/
+/legacy/gpu_timing_clean/
+/pinn_runs/cache/
+/pinn_runs/results/
+/solver_runs/results/
+
+# Runtime state and regenerated secondary-campaign inputs.
+*.log
+/random/pinn_runs/cache/
+/random/pinn_runs/locks/
+/random/solver_runs/handoff.json
+/random/legacy/data/clean.npy
+/random/legacy/data/xray_noisy.npy
+/random/legacy/cnn_*/last.pt

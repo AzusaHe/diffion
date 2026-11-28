@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NP Inverse Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: header with two goal cards; one diagram with a data column, a learned-baselines lane on top and a fitting-methods lane below, both feeding a shared Output; then run conditions and notes as HTML. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --band: #f7f9fb;
+  --ink: #16212c;
+  --muted: #5b6875;
+  --line: #d3dbe2;
+  --frame: #8a96a1;
+  --grad: #0e7a7e;
+  --grad-tint: #e6f3f3;
+  --free: #a85a16;
+  --free-tint: #f8eee4;
+  --vgen: #6449ad;
+  --vgen-tint: #efebf9;
+  --fno: #2b5ca6;
+  --fno-tint: #e8eef8;
+  --ok: #1d7a45; --ok-tint: #e2f2e8; --todo: #b4233c; --todo-tint: #fbe9ec;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161c; --surface: #182028; --band: #141b22; --ink: #e4eaf0; --muted: #9aa8b5; --line: #2f3b47; --frame: #74828f;
+    --grad: #4fc1c4; --grad-tint: #14302f; --free: #e39a5a; --free-tint: #32251a;
+    --vgen: #a893ec; --vgen-tint: #241e39; --fno: #7ea7ec; --fno-tint: #192537;
+    --ok: #5fcf8e; --ok-tint: #15301f; --todo: #f07c8f; --todo-tint: #3a1a21;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161c; --surface: #182028; --band: #141b22; --ink: #e4eaf0; --muted: #9aa8b5; --line: #2f3b47; --frame: #74828f;
+  --grad: #4fc1c4; --grad-tint: #14302f; --free: #e39a5a; --free-tint: #32251a;
+  --vgen: #a893ec; --vgen-tint: #241e39; --fno: #7ea7ec; --fno-tint: #192537;
+  --ok: #5fcf8e; --ok-tint: #15301f; --todo: #f07c8f; --todo-tint: #3a1a21;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap {
+  max-width: 1240px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.015em; }
+h2 { font-size: 0.72rem; font-family: var(--mono); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+h3 { font-size: 1rem; font-weight: 700; }
+p { margin: 0; }
+
+.head { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.lede { color: var(--muted); max-width: 62ch; margin-top: 10px; }
+.goals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.goal { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.goal .n { font: 600 0.7rem var(--mono); letter-spacing: 0.1em; color: var(--muted); }
+.goal h3 { margin-top: 2px; }
+.goal p { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+
+.diagram { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 1000px; height: auto; }
+
+.below { margin-top: 16px; display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.card p { color: var(--muted); font-size: 0.88rem; margin-top: 6px; }
+.card h3 { margin-top: 6px; }
+.conds .row { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 12px; margin-bottom: 4px; }
+.conds .k { font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; gap: 2px; }
+.seg span { font: 500 0.78rem var(--mono); color: var(--muted); padding: 2px 11px; border-radius: 999px; }
+.seg span.on { background: var(--ink); color: var(--surface); }
+
+@media (max-width: 1020px) {
+  .head { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .below { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .goals, .below { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 1.6rem; }
+}
+
+/* SVG */
+.band { fill: var(--band); stroke: var(--line); stroke-width: 1; }
+.bx { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.bx-out { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.bx-v { fill: var(--vgen-tint); stroke: var(--vgen); stroke-width: 1.2; }
+.bx-n { fill: var(--fno-tint); stroke: var(--fno); stroke-width: 1.2; }
+.bx-r { fill: var(--surface); stroke: var(--fno); stroke-width: 1.1; }
+.bx-g { fill: var(--grad-tint); stroke: none; }
+.bx-gs { fill: var(--surface); stroke: var(--grad); stroke-width: 1; }
+.bx-f { fill: var(--free-tint); stroke: none; }
+.fr { fill: none; stroke-width: 1.2; stroke-dasharray: 5 4; }
+.fr-g { stroke: var(--grad); } .fr-f { stroke: var(--free); }
+.ln { fill: none; stroke: var(--frame); stroke-width: 1.5; }
+.ln-v { stroke: var(--vgen); }
+.ln-n { stroke: var(--fno); }
+.ln-d { stroke-dasharray: 4 4; }
+.ah { fill: var(--frame); } .ah-v { fill: var(--vgen); } .ah-n { fill: var(--fno); }
+.t { font: 700 15px var(--display); fill: var(--ink); }
+.t2 { font: 600 13px var(--body); fill: var(--ink); }
+.s { font: 400 12.5px var(--body); fill: var(--muted); }
+.lt { font: 400 11.5px var(--body); fill: var(--muted); }
+.lab { font: 600 10.5px var(--mono); letter-spacing: 0.1em; fill: var(--muted); }
+.lab-n { fill: var(--fno); } .lab-g { fill: var(--grad); } .lab-f { fill: var(--free); } .lab-i { fill: var(--ink); }
+.col { font: 600 10.5px var(--mono); letter-spacing: 0.14em; fill: var(--frame); }
+.tag { fill: none; stroke: var(--ink); stroke-width: 1; }
+.tag-t { font: 600 9.5px var(--mono); letter-spacing: 0.06em; fill: var(--ink); }
+.div { stroke: var(--line); stroke-width: 1; }
+.sub { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+.st-opt rect { fill: none; stroke: var(--frame); stroke-dasharray: 2 2; } .st-opt text { fill: var(--muted); }
+
+/* status marks */
+.st rect { stroke-width: 1.2; }
+.st text { font: 600 9.5px var(--mono); letter-spacing: 0.05em; }
+.st-done rect { fill: var(--ok); stroke: var(--ok); } .st-done text { fill: var(--surface); }
+.st-part rect, .st-code rect { fill: var(--ok-tint); stroke: var(--ok); } .st-part text, .st-code text { fill: var(--ok); }
+.st-todo rect { fill: var(--todo-tint); stroke: var(--todo); stroke-dasharray: 3 2; } .st-todo text { fill: var(--todo); }
+.okt { fill: var(--ok); font-weight: 600; } .tdt { fill: var(--todo); }
+
+.status { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+.status-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.pill { font: 600 0.68rem var(--mono); letter-spacing: 0.05em; padding: 1px 9px; border-radius: 999px; border: 1.2px solid; white-space: nowrap; }
+.pill.done { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.pill.part { background: var(--ok-tint); border-color: var(--ok); color: var(--ok); }
+.pill.todo { background: var(--todo-tint); border-color: var(--todo); color: var(--todo); border-style: dashed; }
+.meter { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--muted); }
+.meter .bar { display: flex; gap: 3px; }
+.meter .bar i { width: 22px; height: 8px; border-radius: 3px; background: var(--todo-tint); border: 1px dashed var(--todo); }
+.meter .bar i.d { background: var(--ok); border: 1px solid var(--ok); }
+.meter b { color: var(--ink); }
+.lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; margin-top: 14px; }
+.lists h3 { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.lists ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.lists li { font-size: 0.88rem; color: var(--muted); padding: 6px 0; border-top: 1px solid var(--line); }
+.lists li b { color: var(--ink); font-weight: 600; }
+@media (max-width: 760px) { .lists { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1>NP Inverse Benchmark</h1>
+      <p class="lede">Recovering D(c) and t₊(c) from constant-current concentration data c(x,t). v(x,t) is reconstructed from c by volume conservation, and c, v feed two families of methods: learned MLP/FNO baselines and fitting methods. All results are scored in one place.</p>
+    </div>
+    <div class="goals">
+      <div class="goal"><span class="n">GOAL 1</span><h3>Identifiability</h3><p>Which parts of D(c), t₊(c) the c data can determine, for each run condition.</p></div>
+      <div class="goal"><span class="n">GOAL 2</span><h3>Cost of each method</h3><p>Solver calls and wall-clock time to reach the same accuracy.</p></div>
+    </div>
+  </header>
+
+  <section class="status" aria-label="Project status">
+    <div class="status-top">
+      <h2>Status · as of Nov 23, 2026</h2>
+      <div class="meter"><span class="bar"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i></i><i></i><i></i><i></i></span><span><b>5 of 9</b> stages done</span></div>
+      <div class="legend">
+        <span><span class="pill done">✓ DONE</span> results in hand</span>
+        <span><span class="pill part">PARTIAL</span> some results in hand</span>
+        <span><span class="pill todo">○ TO DO</span> not started</span>
+      </div>
+    </div>
+    <div class="lists">
+      <div>
+        <h3><span class="pill done">✓</span> Done</h3>
+        <ul>
+          <li><b>Forward generation + dataset.</b> 10,336 train / 593 val / 300 test materials.</li>
+          <li><b>v reconstruction</b> from c by volume conservation.</li>
+          <li><b>MLP / FNO, ① direct + ② TTT.</b> TTT cuts ln D error 1.4–1.5× and ln[(1−t₊)/D] 4.5–5.4×; FNO+TTT best (D error 5.5%).</li>
+          <li><b>Gradient-free NM, CMA-ES, BO, inputs A and B,</b> on the full model (300 materials; BO on 30, 150 evaluations). To reach 0.01 %, NM needs a median of 588 evaluations from the FNO+TTT start vs 814 from the generic start, CMA-ES 1,450 vs 1,524; BO reaches only 0.1 %. Even at 0.01 % RMSE in c, D is still off by about 3.4 %.</li>
+          <li><b>Differentiable solver + L-BFGS, inputs A and B,</b> on the 300 test materials. All fits converge. To reach 0.01 % RMSE takes a median of 45 evaluations from the generic start and 32–40 from an MLP/FNO start (32 with FNO+TTT), at about 40 ms per evaluation.</li>
+        </ul>
+      </div>
+      <div>
+        <h3><span class="pill part">PARTIAL</span> Partial</h3>
+        <ul>
+          <li><b>PINN, both builds, inputs A and B, total loss</b> (one Adam, no staging), on 8 materials, in JAX (CPU) and PyTorch (GPU, RTX 4090, about 30–50 s per fit). Neither build recovers θ: from the FNO+TTT start D error goes from 5.7 % to 9–11 %, and from θ = 0.5 it goes from 31.8 % to 28–29 %. The c fit stalls at 0.5–0.8 % RMSE, and Build 2 diverges on the lowest-c materials.</li>
+        </ul>
+        <h3><span class="pill todo">○</span> Left</h3>
+        <ul>
+          <li><b>PINN, both builds, inputs A and B: next round.</b> Total loss is done (see Partial); still to do are staged training and a run on all 300 materials.</li>
+          <li><b>Hessian identifiability</b> at the fit, per run condition (Goal 1).</li>
+          <li><b>Later rounds:</b> more currents per material, then noise in c.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1240 896" role="img" aria-label="Workflow with done and to-do status marks: forward data generation and v reconstruction feed a learned-baselines lane (MLP and FNO, by direct prediction then test-time training) and a fitting-methods lane drawn twice, once per input (A: c, v with a learned start; B: c, v without), each with gradient-based and gradient-free methods; both lanes feed a shared output.">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="av" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="ah-v" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="ah-n" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <!-- column captions -->
+      <text class="col" x="110" y="26" text-anchor="middle">DATA</text>
+      <text class="col" x="316" y="26" text-anchor="middle">PRE-PROCESS</text>
+      <text class="col" x="540" y="26" text-anchor="middle">INPUT</text>
+      <text class="col" x="835" y="26" text-anchor="middle">METHOD</text>
+      <text class="col" x="1140" y="26" text-anchor="middle">OUTPUT</text>
+
+      <!-- lanes -->
+      <rect class="band" x="420" y="44" width="590" height="172" rx="14"/>
+      <text class="lab lab-n" x="440" y="68">LEARNED BASELINES</text>
+      <rect class="band" x="420" y="236" width="590" height="648" rx="14"/>
+      <text class="lab lab-i" x="440" y="260">FITTING METHODS</text>
+      <text class="lt" x="920" y="260" text-anchor="end">same methods, one copy per input · A vs B comparison</text>
+      <g class="st st-part" transform="translate(928,247)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+
+      <!-- DATA: forward generation -->
+      <rect class="bx" x="20" y="300" width="180" height="200" rx="10"/>
+      <text class="t" x="36" y="327">Forward generation</text>
+      <text class="s" x="36" y="351">diffnp solver, fine grid</text>
+      <text class="s" x="36" y="370">materials D(c), t₊(c)</text>
+      <text class="s" x="36" y="389">constant current, no rest</text>
+      <line class="div" x1="36" y1="405" x2="184" y2="405"/>
+      <text class="s" x="36" y="427">downsampled to the</text>
+      <text class="s" x="36" y="446">measured x and t</text>
+      <text class="t2" x="36" y="478">→ c(x,t)</text>
+
+      <!-- synthetic training set → MLP/FNO -->
+      <path class="ln ln-d" d="M110,300 V102 H438" marker-end="url(#a)"/>
+      <text class="lt" x="122" y="94">synthetic training set</text>
+
+      <!-- PRE-PROCESS: v reconstruction -->
+      <path class="ln" d="M200,400 H234" marker-end="url(#a)"/>
+      <rect class="bx-v" x="236" y="350" width="160" height="100" rx="10"/>
+      <text class="t" x="250" y="376">v reconstruction</text>
+      <text class="s" x="250" y="398">c(x,t) → v(x,t)</text>
+      <text class="s" x="250" y="417">volume conservation</text>
+      <text class="s" x="250" y="435">1-D, no training</text>
+
+      <!-- c, v bus -->
+      <path class="ln ln-v" d="M396,400 H414"/>
+      <path class="ln ln-v" d="M414,142 V712"/>
+      <path class="ln ln-v" d="M414,142 H438" marker-end="url(#av)"/>
+      <path class="ln ln-v" d="M414,406 H446" marker-end="url(#av)"/>
+      <path class="ln ln-v" d="M414,712 H446" marker-end="url(#av)"/>
+      <text class="lt" x="406" y="336" text-anchor="end" style="fill: var(--vgen)">c, v</text>
+
+      <!-- LEARNED BASELINES lane -->
+      <rect class="bx-n" x="440" y="84" width="200" height="116" rx="10"/>
+      <text class="t" x="456" y="110">MLP · FNO</text>
+      <text class="s" x="456" y="134">input c(x,t), v(x,t)</text>
+      <text class="s" x="456" y="153">output D(c), t₊(c)</text>
+      <text class="s" x="456" y="181">two training routes →</text>
+
+      <path class="ln ln-n" d="M640,109 H698" marker-end="url(#an)"/>
+      <path class="ln ln-n" d="M640,175 H698" marker-end="url(#an)"/>
+
+      <rect class="bx-r" x="700" y="84" width="290" height="50" rx="8"/>
+      <text class="t2" x="716" y="105">① Direct prediction</text>
+      <text class="s" x="716" y="124">supervised on true D(c), t₊(c)</text>
+      <rect class="bx-r" x="700" y="150" width="290" height="50" rx="8"/>
+      <text class="t2" x="716" y="171">② Test-time training (TTT)</text>
+      <text class="s" x="716" y="190">fine-tunes ① on PDE residual · no labels</text>
+
+      <path class="ln ln-n" d="M990,109 H1048" marker-end="url(#an)"/>
+      <path class="ln ln-n" d="M990,175 H1048" marker-end="url(#an)"/>
+
+      <!-- baselines → starting values for input A -->
+      <path class="ln ln-n ln-d" d="M604,200 V372" marker-end="url(#an)"/>
+      <text class="lt" x="596" y="231" text-anchor="end" style="fill: var(--fno)">starting D, t₊</text>
+
+      <!-- INPUT A copy -->
+      <rect class="sub" x="432" y="274" width="566" height="292" rx="12"/>
+      <text class="lab lab-i" x="448" y="298">INPUT A</text>
+      <text class="lt" x="982" y="298" text-anchor="end">6 of 6 methods run</text>
+      <rect class="bx" x="448" y="374" width="192" height="64" rx="8"/>
+      <text class="t2" x="462" y="402">c, v + learned start</text>
+      <text class="s" x="462" y="422">D, t₊ start from MLP/FNO</text>
+      <g class="st st-part" transform="translate(460,365)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="fr fr-g" x="680" y="310" width="310" height="138" rx="10"/>
+      <text class="lab lab-g" x="694" y="330">GRADIENT-BASED</text>
+      <rect class="bx-g" x="694" y="340" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="359.5">PINN build 1 · c_net + v_net</text>
+      <g class="st st-part" transform="translate(898,346)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="bx-g" x="694" y="374" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="393.5">PINN build 2 · c_net only</text>
+      <g class="st st-part" transform="translate(898,380)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="bx-g" x="694" y="408" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="427.5">DiffEC-style solver + L-BFGS</text>
+      <g class="st st-done" transform="translate(916,414)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="fr fr-f" x="680" y="458" width="310" height="98" rx="10"/>
+      <text class="lab lab-f" x="694" y="478">GRADIENT-FREE</text>
+      <text class="lt" x="976" y="478" text-anchor="end">300 materials · BO on 30</text>
+      <rect class="bx-f" x="694" y="488" width="138" height="28" rx="6"/>
+      <text class="t2" x="706" y="506.5">NM</text>
+      <g class="st st-done" transform="translate(774,493)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="838" y="488" width="138" height="28" rx="6"/>
+      <text class="t2" x="850" y="506.5">CMA-ES</text>
+      <g class="st st-done" transform="translate(918,493)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="694" y="520" width="138" height="28" rx="6"/>
+      <text class="t2" x="706" y="538.5">BO</text>
+      <g class="st st-done" transform="translate(774,525)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="838" y="520" width="138" height="28" rx="6"/>
+      <text class="t2" x="850" y="538.5">PSO</text>
+      <g class="st st-opt" transform="translate(902,525)"><rect width="68" height="18" rx="9"/><text x="34" y="12.6" text-anchor="middle">OPTIONAL</text></g>
+      <path class="ln" d="M640,406 H660"/>
+      <path class="ln" d="M660,379 V507"/>
+      <path class="ln" d="M660,379 H678" marker-end="url(#a)"/>
+      <path class="ln" d="M660,507 H678" marker-end="url(#a)"/>
+      <path class="ln" d="M990,379 H1020"/>
+      <path class="ln" d="M990,507 H1020"/>
+
+      <!-- INPUT B copy -->
+      <rect class="sub" x="432" y="580" width="566" height="292" rx="12"/>
+      <text class="lab lab-i" x="448" y="604">INPUT B</text>
+      <text class="lt" x="982" y="604" text-anchor="end">6 of 6 methods run</text>
+      <rect class="bx" x="448" y="680" width="192" height="64" rx="8"/>
+      <text class="t2" x="462" y="708">c, v · no learned start</text>
+      <text class="s" x="462" y="728">generic start (θ = 0.5 or Sobol)</text>
+      <g class="st st-part" transform="translate(460,671)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="fr fr-g" x="680" y="616" width="310" height="138" rx="10"/>
+      <text class="lab lab-g" x="694" y="636">GRADIENT-BASED</text>
+      <rect class="bx-g" x="694" y="646" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="665.5">PINN build 1 · c_net + v_net</text>
+      <g class="st st-part" transform="translate(898,652)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="bx-g" x="694" y="680" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="699.5">PINN build 2 · c_net only</text>
+      <g class="st st-part" transform="translate(898,686)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <rect class="bx-g" x="694" y="714" width="282" height="30" rx="6"/>
+      <text class="t2" x="706" y="733.5">DiffEC-style solver + L-BFGS</text>
+      <g class="st st-done" transform="translate(916,720)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="fr fr-f" x="680" y="764" width="310" height="98" rx="10"/>
+      <text class="lab lab-f" x="694" y="784">GRADIENT-FREE</text>
+      <text class="lt" x="976" y="784" text-anchor="end">300 materials · BO on 30</text>
+      <rect class="bx-f" x="694" y="794" width="138" height="28" rx="6"/>
+      <text class="t2" x="706" y="812.5">NM</text>
+      <g class="st st-done" transform="translate(774,799)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="838" y="794" width="138" height="28" rx="6"/>
+      <text class="t2" x="850" y="812.5">CMA-ES</text>
+      <g class="st st-done" transform="translate(918,799)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="694" y="826" width="138" height="28" rx="6"/>
+      <text class="t2" x="706" y="844.5">BO</text>
+      <g class="st st-done" transform="translate(774,831)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <rect class="bx-f" x="838" y="826" width="138" height="28" rx="6"/>
+      <text class="t2" x="850" y="844.5">PSO</text>
+      <g class="st st-opt" transform="translate(902,831)"><rect width="68" height="18" rx="9"/><text x="34" y="12.6" text-anchor="middle">OPTIONAL</text></g>
+      <path class="ln" d="M640,712 H660"/>
+      <path class="ln" d="M660,685 V813"/>
+      <path class="ln" d="M660,685 H678" marker-end="url(#a)"/>
+      <path class="ln" d="M660,813 H678" marker-end="url(#a)"/>
+      <path class="ln" d="M990,685 H1020"/>
+      <path class="ln" d="M990,813 H1020"/>
+
+      <!-- methods → output bus -->
+      <path class="ln" d="M1020,379 V813"/>
+      <path class="ln" d="M1020,454 H1048" marker-end="url(#a)"/>
+
+      <!-- OUTPUT -->
+      <rect class="bx-out" x="1050" y="84" width="180" height="416" rx="12"/>
+      <text class="t" x="1066" y="112">Output</text>
+      <text class="lab" x="1066" y="152">ACCURACY</text>
+      <text class="s" x="1066" y="176">Recovered D(c), t₊(c)</text>
+      <text class="s" x="1066" y="196">Error vs true values</text>
+      <text class="s" x="1066" y="216">Spread over starts</text>
+      <line class="div" x1="1066" y1="246" x2="1214" y2="246"/>
+      <circle class="tag" cx="1073" cy="276" r="7.5"/>
+      <text class="tag-t" x="1073" y="279.5" text-anchor="middle">2</text>
+      <text class="lab" x="1088" y="280">COST</text>
+      <text class="s" x="1066" y="304">Solver calls</text>
+      <text class="s" x="1066" y="324">Wall-clock time</text>
+      <line class="div" x1="1066" y1="354" x2="1214" y2="354"/>
+      <circle class="tag" cx="1073" cy="384" r="7.5"/>
+      <text class="tag-t" x="1073" y="387.5" text-anchor="middle">1</text>
+      <text class="lab" x="1088" y="388">IDENTIFIABILITY</text>
+      <text class="s" x="1066" y="412">Hessian at the fit,</text>
+      <text class="s" x="1066" y="432">per run condition</text>
+      <text class="lt" x="1066" y="480">Numbers mark the goal</text>
+      <text class="lt" x="1066" y="494">each section answers.</text>
+      <!-- STATUS MARKS -->
+      <g class="st st-done" transform="translate(32,291)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <g class="st st-done" transform="translate(248,341)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <g class="st st-done" transform="translate(452,75)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <g class="st st-done" transform="translate(712,75)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <g class="st st-done" transform="translate(712,141)"><rect width="52" height="18" rx="9"/><text x="26" y="12.6" text-anchor="middle">✓ DONE</text></g>
+      <g class="st st-part" transform="translate(1150,140)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <g class="st st-part" transform="translate(1150,268)"><rect width="70" height="18" rx="9"/><text x="35" y="12.6" text-anchor="middle">PARTIAL</text></g>
+      <g class="st st-todo" transform="translate(1066,444)"><rect width="58" height="18" rx="9"/><text x="29" y="12.6" text-anchor="middle">○ TO DO</text></g>
+    </svg>
+  </div>
+
+  <div class="below">
+    <div class="card conds">
+      <h2>Run conditions</h2>
+      <div class="row">
+        <div><div class="k">Currents per material</div><div class="seg"><span class="on">1</span><span>2</span><span>3</span></div></div>
+        <div><div class="k">Noise in c</div><div class="seg"><span class="on">off</span><span>on</span></div></div>
+      </div>
+      <p>First round (highlighted): one current, no noise. Every input option, method and baseline runs on it; later rounds change one condition at a time.</p>
+      <p><span class="pill part">ROUND 1 IN PROGRESS</span> <span class="pill todo">○ MULTI-CURRENT, NOISE</span></p>
+    </div>
+    <div class="card">
+      <h2 style="color: var(--vgen)">Pre-process</h2>
+      <h3>v is reconstructed</h3>
+      <p>In 1-D, volume conservation ties v(x,t) to c(x,t), so v is computed from c by integrating ∂c/∂t over x. Nothing is trained for it.</p>
+    </div>
+    <div class="card">
+      <h2 style="color: var(--fno)">Learned baselines</h2>
+      <h3>Two training routes</h3>
+      <p>① Direct prediction: trained on synthetic pairs against the true D(c), t₊(c), not the c-fit data loss of a PINN. ② Test-time training (TTT): starts from the supervised net and takes 150 AdamW steps per material on the PDE residual of the input c, v, with no labels. It is not a PINN either.</p>
+    </div>
+    <div class="card">
+      <h2 style="color: var(--grad)">Fitting methods</h2>
+      <h3>Two PINN builds <span class="pill part">PARTIAL</span></h3>
+      <p>c_net + v_net learns v as its own network, so no integration is needed. c_net only gets v by integrating ∂c/∂t over x at each time. Both now run with one total loss and one Adam (no staging); with that setup neither recovers θ, so staged training comes next.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

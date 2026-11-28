@@ -1,0 +1,67 @@
+<details id="diffion-fields">
+  <summary>Measured concentration fields for this material</summary>
+  <div class="di-fields-body">
+    <p id="di-fields-caption"></p>
+    <div id="di-fields-grid"></div>
+    <div class="di-fields-key"><span>Concentration</span><span>0</span><i></i><span>2</span>
+      <span class="di-missing"></span><span>Outside valid time window</span></div>
+    <p>All four panels use the same scale and binned grid. Time increases upward from 0.07 to 3.27 hours. Normalized position increases from 0 to 1.</p>
+  </div>
+</details>
+<style>
+  #diffion-fields {margin:1.2rem 0;color:#20353c;border:1px solid #d6e0df;border-radius:8px;background:white}
+  #diffion-fields summary {font-weight:650;padding:.95rem 1.1rem;cursor:pointer}
+  #diffion-fields .di-fields-body {padding:0 1.1rem .7rem}
+  #diffion-fields p {font-size:.85rem;color:#49636a;margin:.4rem 0 .85rem}
+  #di-fields-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  #di-fields-grid figure {margin:0;min-width:0}
+  #di-fields-grid figcaption {font-size:.82rem;font-weight:650;line-height:1.5;margin-bottom:4px}
+  #di-fields-grid small {font-size:.78rem;color:#49636a}
+  #di-fields-grid canvas {width:100%;height:auto;image-rendering:pixelated;border:1px solid #dae5e3;display:block}
+  .di-fields-key {display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:.7rem 0;font-size:.78rem}
+  .di-fields-key i {width:100px;height:9px;background:linear-gradient(90deg,#2265a4,#faf9f5,#b33928)}
+  .di-missing {width:12px;height:12px;background:#d5dbde;margin-left:1rem}
+  @media(max-width:800px){#di-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<script type="application/json" id="measured-fields-data">__MEASURED_FIELDS__</script>
+<script>
+(() => {
+  const box=document.getElementById('diffion-fields');
+  const payload=JSON.parse(document.getElementById('measured-fields-data').textContent);
+  let chosen='', drawn='';
+  function draw() {
+    chosen=String(document.getElementById('material')?.value || chosen);
+    if (!box.open || !payload[chosen] || chosen===drawn) return;
+    drawn=chosen;
+    const [currents,counts,encoded]=payload[chosen];
+    const bytes=Uint8Array.from(atob(encoded), c=>c.charCodeAt(0));
+    const values=new DataView(bytes.buffer);
+    const area=document.getElementById('di-fields-grid');
+    area.replaceChildren();
+    document.getElementById('di-fields-caption').textContent='Material '+chosen+' · The one-current observation uses the assigned input. The three-current observation includes all three trajectories through their shared valid time window.';
+    const captions=['One current','Three currents · low','Three currents · middle','Three currents · high'];
+    const blue=[34,101,164], cream=[250,249,245], red=[179,57,40];
+    for (let p=0;p<4;p++) {
+      const fig=document.createElement('figure'), title=document.createElement('figcaption');
+      title.textContent=captions[p]+' · ι = '+currents[p].toFixed(3);
+      title.style.color=p===0?'#a03f22':'#00656b';
+      const canvas=document.createElement('canvas'); canvas.width=20; canvas.height=13;
+      canvas.setAttribute('role','img');canvas.setAttribute('aria-label',title.textContent+', material '+chosen);
+      const ctx=canvas.getContext('2d'), image=ctx.createImageData(20,13);
+      for(let t=0;t<13;t++) for(let x=0;x<20;x++) {
+        const raw=values.getUint16(2*((p*13+t)*20+x),true);
+        const v=raw/10000;
+        const a=v<1?blue:cream, b=v<1?cream:red, f=v<1?v:v-1;
+        const idx=4*((12-t)*20+x);
+        for(let c=0;c<3;c++) image.data[idx+c]=raw===65535?[213,219,222][c]:Math.round(a[c]+(b[c]-a[c])*f);
+        image.data[idx+3]=255;
+      }
+      ctx.putImageData(image,0,0);
+      const valid=document.createElement('small');valid.textContent=counts[p?1:0]+' of 13 frames';
+      fig.append(title,canvas,valid);area.append(fig);
+    }
+  }
+  box.addEventListener('toggle',draw);
+  document.addEventListener('diffion:material', e=>{chosen=String(e.detail.materialId);draw();});
+})();
+</script>

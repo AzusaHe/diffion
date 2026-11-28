@@ -1,0 +1,38 @@
+cv fno_ttt m001: 5000 steps, 5994 s, rel rmse 2.9e-03
+{
+ "n": 3,
+ "build": "cv",
+ "start": "fno_ttt",
+ "median_start": {
+  "D_relL2_pct": 5.565425862256009,
+  "tplus_rmse": 0.02170635325636181,
+  "group_rmse": 0.013659689570243569,
+  "mse_lnD": 0.0012291432797467664,
+  "mse_tplus": 0.000471165771689969
+ },
+ "median_fit": {
+  "D_relL2_pct": 9.570287797536942,
+  "tplus_rmse": 0.016212109594231115,
+  "group_rmse": 0.05546339323119694,
+  "mse_lnD": 0.004248813134493065,
+  "mse_tplus": 0.00026283249749536056
+ },
+ "D_err_improved": 0,
+ "median_rel_rmse": 0.005062989660829324,
+ "median_wall_s": 5993.876388199977,
+ "target_0.01": {
+  "reached": 3,
+  "median_steps": 1400.0,
+  "median_wall_s": 1797.9715929999948
+ },
+ "target_0.001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ },
+ "target_0.0001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ }
+}

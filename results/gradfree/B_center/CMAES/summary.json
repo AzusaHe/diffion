@@ -1,0 +1,34 @@
+{
+ "n": 300,
+ "start": "center",
+ "method": "CMAES",
+ "median_fit": {
+  "D_relL2_pct": 4.120349253070097,
+  "tplus_rmse": 0.023340651095977195,
+  "group_rmse": 0.006272525744558293,
+  "mse_lnD": 0.002050066686939251,
+  "mse_tplus": 0.0005447890520839578
+ },
+ "median_rel_rmse": 9.926536461784723e-05,
+ "median_evals": 1865.0,
+ "median_wall_s": 28.14662360001239,
+ "status": {
+  "reached_target": 174,
+  "used_budget": 126
+ },
+ "target_0.01": {
+  "reached": 300,
+  "median_evals": 65.0,
+  "median_wall_s": 1.0158823500096332
+ },
+ "target_0.001": {
+  "reached": 298,
+  "median_evals": 742.5,
+  "median_wall_s": 11.185191299999133
+ },
+ "target_0.0001": {
+  "reached": 174,
+  "median_evals": 1524.0,
+  "median_wall_s": 22.937472100020386
+ }
+}

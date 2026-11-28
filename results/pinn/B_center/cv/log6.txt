@@ -1,0 +1,38 @@
+cv center m006: 5000 steps, 6001 s, rel rmse 4.5e-03
+{
+ "n": 4,
+ "build": "cv",
+ "start": "center",
+ "median_start": {
+  "D_relL2_pct": 28.06140323712909,
+  "tplus_rmse": 0.2094284762025878,
+  "group_rmse": 0.3662003868540147,
+  "mse_lnD": 0.0857642144013115,
+  "mse_tplus": 0.04406060118842801
+ },
+ "median_fit": {
+  "D_relL2_pct": 29.06653644357386,
+  "tplus_rmse": 0.18357357121492557,
+  "group_rmse": 0.2952814784438801,
+  "mse_lnD": 0.08084687342609187,
+  "mse_tplus": 0.03371886441449548
+ },
+ "D_err_improved": 2,
+ "median_rel_rmse": 0.00537981779928934,
+ "median_wall_s": 5998.532836900005,
+ "target_0.01": {
+  "reached": 3,
+  "median_steps": 1000.0,
+  "median_wall_s": 1307.4182075000135
+ },
+ "target_0.001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ },
+ "target_0.0001": {
+  "reached": 0,
+  "median_steps": null,
+  "median_wall_s": null
+ }
+}

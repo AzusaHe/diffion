@@ -1,0 +1,143 @@
+[
+  {
+    "name": "MLP",
+    "slug": "mlp",
+    "family": "Supervised and TTT",
+    "one": {
+      "params": "23,888",
+      "input": "547 features from one current. Each current contributes two 13 × 20 maps, a 13-value frame mask, 13 observation times and one current value.",
+      "layers": [
+        "Dense 547 → 40 (21,920 parameters)",
+        "Dense 40 → 40 (1,640)",
+        "Dense 40 → 8 (328)"
+      ]
+    },
+    "three": {
+      "params": "67,648",
+      "input": "1,641 features from three currents, with 547 features per current.",
+      "layers": [
+        "Dense 1,641 → 40 (65,680 parameters)",
+        "Dense 40 → 40 (1,640)",
+        "Dense 40 → 8 (328)"
+      ]
+    },
+    "activation": "GELU after each 40-unit hidden layer. Eight output logits pass through sigmoid to yield the four diffusivity and four transference-number Bernstein coefficients.",
+    "optimizer": "AdamW, initial learning rate 0.001, weight decay 0.01, β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸. Cosine annealing reaches zero over 2,200 minibatch updates.",
+    "training": [
+      "100 epochs, batch size 64, shuffled training materials each epoch. Loss is the mean squared error of the eight unit-interval coefficients.",
+      "Retain the checkpoint with the lowest coefficient MSE across 156 validation materials. Seed 0 supplies primary results, with repeats at seeds 1 and 2."
+    ],
+    "notes": "The two input maps are concentration deviation (c − 1) and reconstructed velocity. Both use per-current training RMS normalization. The three-current first dense layer adds 43,760 trainable weights. Each domain and current count has separately fitted weights.",
+    "sources": [
+      "one_current/clean_gaussian/learn.py",
+      "one_current/clean_gaussian/results/{domain}__{currents}__mlp.json"
+    ]
+  },
+  {
+    "name": "MLP + test-time training",
+    "slug": "mlp_ttt",
+    "family": "Supervised and TTT",
+    "one": {
+      "params": "23,888",
+      "input": "547 features from one current. Each current contributes two 13 × 20 maps, a 13-value frame mask, 13 observation times and one current value.",
+      "layers": [
+        "Dense 547 → 40 (21,920 parameters)",
+        "Dense 40 → 40 (1,640)",
+        "Dense 40 → 8 (328)"
+      ]
+    },
+    "three": {
+      "params": "67,648",
+      "input": "1,641 features from three currents, with 547 features per current.",
+      "layers": [
+        "Dense 1,641 → 40 (65,680 parameters)",
+        "Dense 40 → 40 (1,640)",
+        "Dense 40 → 8 (328)"
+      ]
+    },
+    "activation": "GELU after each 40-unit hidden layer. Eight output logits pass through sigmoid to yield the four diffusivity and four transference-number Bernstein coefficients.",
+    "optimizer": "Pretrain for 100 epochs with AdamW at 0.001, batch size 64, and cosine decay to zero. Test-time adaptation uses a fresh AdamW for each material, fixed learning rate 0.00001, weight decay 0.01, β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸.",
+    "training": [
+      "Start from the matching supervised MLP checkpoint. Run 150 updates on all weights of an independent copy for each test material. The objective is the mean squared concentration-conservation residual over valid time intervals and spatial bins.",
+      "Choose the learning rate from 0.00001, 0.0001 and 0.001 on 100 validation materials by median observed-range squared log-diffusivity error. All domain and current-count combinations selected 0.00001 at seed 0. Seeds 1 and 2 reuse that rate."
+    ],
+    "notes": "Parameter counts apply to one independently adapted model. Clean and Gaussian-noisy cases use the same settings. The primary run processed up to 32 independent material fits together on CPU.",
+    "sources": [
+      "one_current/clean_gaussian/learn.py",
+      "one_current/clean_gaussian/results/{domain}__{currents}__mlp_ttt.json"
+    ]
+  },
+  {
+    "name": "Fourier neural operator (FNO)",
+    "slug": "fno",
+    "family": "Supervised and TTT",
+    "one": {
+      "params": "65,741",
+      "input": "6 × 13 × 20 input tensor (channels × frames × spatial bins). Five channels for the current plus one shared spatial coordinate.",
+      "layers": [
+        "1 × 1 convolution lifts 6 → 11 channels (77 parameters). Pad the grid to 16 × 24.",
+        "Four Fourier blocks, each 11 → 11 channels (14,652 real parameters per block). Each sums a spectral convolution and a parallel 1 × 1 convolution.",
+        "Crop to 13 × 20. A 1 × 1 convolution projects 11 → 22 channels (264).",
+        "Masked mean and max pooling concatenate 22 + 22 = 44 features. Dense head 44 → 128 (5,760) → 8 (1,032)."
+      ]
+    },
+    "three": {
+      "params": "65,851",
+      "input": "16 × 13 × 20 input tensor. Five channels for each of three currents plus one shared spatial coordinate.",
+      "layers": [
+        "1 × 1 convolution lifts 16 → 11 channels (187 parameters). Pad to 16 × 24.",
+        "Four Fourier blocks, each 11 → 11 channels (14,652 real parameters per block).",
+        "Crop to 13 × 20. A 1 × 1 convolution projects 11 → 22 channels (264).",
+        "Masked mean and max pooling produce 44 features. Dense head 44 → 128 (5,760) → 8 (1,032)."
+      ]
+    },
+    "activation": "GELU follows Fourier blocks 1–3, the 11 → 22 projection and the 128-unit dense layer. Block 4 feeds the projection directly. Sigmoid maps the eight output logits to coefficients.",
+    "optimizer": "AdamW, initial learning rate 0.001, weight decay 0.01, β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸. Cosine annealing reaches zero over 2,200 minibatch updates.",
+    "training": [
+      "100 epochs, batch size 64, shuffled training materials each epoch. Loss is the mean squared error of the eight unit-interval coefficients.",
+      "Retain the checkpoint with the lowest coefficient MSE across 156 validation materials. Seed 0 supplies primary results, with repeats at seeds 1 and 2."
+    ],
+    "notes": "Each current contributes c − 1, reconstructed velocity, a validity mask, observation time and current magnitude. Each Fourier block learns two complex 11 × 11 × 5 × 6 weight banks for opposite temporal frequency bands. Each complex entry counts as two real trainable scalars. The ten extra lift channels add 110 weights for three currents. Clean and Gaussian-noisy runs use the same layer shapes for a given count.",
+    "sources": [
+      "one_current/clean_gaussian/learn.py",
+      "surrogate/models.py",
+      "one_current/clean_gaussian/results/{domain}__{currents}__fno.json"
+    ]
+  },
+  {
+    "name": "FNO + test-time training",
+    "slug": "fno_ttt",
+    "family": "Supervised and TTT",
+    "one": {
+      "params": "65,741",
+      "input": "6 × 13 × 20 input tensor (channels × frames × spatial bins). Five channels for the current plus one shared spatial coordinate.",
+      "layers": [
+        "1 × 1 convolution lifts 6 → 11 channels (77 parameters). Pad the grid to 16 × 24.",
+        "Four Fourier blocks, each 11 → 11 channels (14,652 real parameters per block). Each sums a spectral convolution and a parallel 1 × 1 convolution.",
+        "Crop to 13 × 20. A 1 × 1 convolution projects 11 → 22 channels (264).",
+        "Masked mean and max pooling concatenate 22 + 22 = 44 features. Dense head 44 → 128 (5,760) → 8 (1,032)."
+      ]
+    },
+    "three": {
+      "params": "65,851",
+      "input": "16 × 13 × 20 input tensor. Five channels for each of three currents plus one shared spatial coordinate.",
+      "layers": [
+        "1 × 1 convolution lifts 16 → 11 channels (187 parameters). Pad to 16 × 24.",
+        "Four Fourier blocks, each 11 → 11 channels (14,652 real parameters per block).",
+        "Crop to 13 × 20. A 1 × 1 convolution projects 11 → 22 channels (264).",
+        "Masked mean and max pooling produce 44 features. Dense head 44 → 128 (5,760) → 8 (1,032)."
+      ]
+    },
+    "activation": "GELU follows Fourier blocks 1–3, the 11 → 22 projection and the 128-unit dense layer. Block 4 feeds the projection directly. Sigmoid maps the eight output logits to coefficients.",
+    "optimizer": "Pretrain for 100 epochs with AdamW at 0.001, batch size 64, and cosine decay to zero. Test-time adaptation uses a fresh AdamW for each material, fixed learning rate 0.00001, weight decay 0.01, β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸.",
+    "training": [
+      "Start from the matching supervised FNO checkpoint. Run 150 updates on all weights of an independent copy for each test material. The objective is the mean squared concentration-conservation residual over valid time intervals and spatial bins.",
+      "Choose the learning rate from 0.00001, 0.0001 and 0.001 on 100 validation materials by median observed-range squared log-diffusivity error. All domain and current-count combinations selected 0.00001 at seed 0. Seeds 1 and 2 reuse that rate."
+    ],
+    "notes": "Parameter counts apply to one independently adapted model. Clean and Gaussian-noisy cases use the same settings. The primary run processed up to 64 independent material fits together on GPU.",
+    "sources": [
+      "one_current/clean_gaussian/learn.py",
+      "one_current/clean_gaussian/results/{domain}__{currents}__fno_ttt.json"
+    ]
+  }
+]

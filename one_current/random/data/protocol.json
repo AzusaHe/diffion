@@ -1,0 +1,40 @@
+{
+  "protocol": "random",
+  "current_range": [
+    8.256895120961616e-06,
+    3.1248306889283333
+  ],
+  "number_of_currents": 1,
+  "split_counts": {
+    "id_test": 1207,
+    "ood_params": 2859,
+    "train": 10336,
+    "val": 593
+  },
+  "frames_different_from_original": 5898,
+  "max_original_overlap_difference": 0.0,
+  "seed": 236,
+  "selection": "Uniform draw among the original three current ranks, seeded by [seed, original material ID]",
+  "rank_counts": {
+    "id_test": [
+      381,
+      417,
+      409
+    ],
+    "ood_params": [
+      968,
+      961,
+      930
+    ],
+    "train": [
+      3451,
+      3401,
+      3484
+    ],
+    "val": [
+      210,
+      208,
+      175
+    ]
+  }
+}

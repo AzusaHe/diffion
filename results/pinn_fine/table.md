@@ -1,0 +1,8 @@
+| run | input | D err % (start -> fit) | better | t+ rmse | c misfit % | v misfit % | c / v misfit % after stage 1 |
+|---|---|---|---|---|---|---|---|
+| staged w100 (earlier) | A | 5.7 -> 13.3 | 0/8 | 0.141 | 0.265 | nan | nan / nan |
+| staged w100 (earlier) | B | 31.8 -> 17.3 | 5/8 | 0.172 | 0.273 | nan | nan / nan |
+| staged w1 (earlier) | A | 5.7 -> 27.9 | 0/8 | 0.185 | 0.266 | nan | nan / nan |
+| staged w1 (earlier) | B | 31.8 -> 35.7 | 2/8 | 0.227 | 0.260 | nan | nan / nan |
+| data-first joint w_data=1e-2 | A | 5.7 -> 10.4 | 1/8 | 0.040 | 0.125 | 0.14 | 0.0464 / 0.090 |
+| data-first joint w_data=1e-2 | B | 31.8 -> 20.5 | 7/8 | 0.079 | 0.139 | 0.14 | 0.0464 / 0.090 |

@@ -1,0 +1,17 @@
+{
+  "train_s": 0.0,
+  "n_train": 0,
+  "test_s": 196.6375661996426,
+  "median_fit_s": 0.6335110000218265,
+  "device": "CPU",
+  "median_evals": 500.0,
+  "median_c_rmse": 0.002474406481887372,
+  "description": "40-cell conservative finite-volume solver with an implicit midpoint corrector, fit to 20 bin averages. 500 evaluations.",
+  "timing": "Sum of elapsed per-material fitting times in concurrent CPU workers, excluding compilation and warm-start prediction.",
+  "warm_start": null,
+  "budget": "500 evaluations",
+  "statuses": {
+    "used_budget": 300
+  },
+  "n_test": 300
+}

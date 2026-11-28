@@ -1,0 +1,41 @@
+   3651 s  done c_A_m1_w1_observed (exit 0)
+   3651 s  done c_truth_w100_observed (exit 0)
+   3661 s  done c_A_m1_w100_early (exit 0)
+   3666 s  done c_A_m1_w1_early (exit 0)
+   3666 s  done c_A_m0.1_w1_early (exit 0)
+   3666 s  done c_A_m0.1_w100_observed (exit 0)
+   3671 s  done cv_A_m0.1_w100_early (exit 0)
+   3671 s  done cv_A_m0.1_w100_observed (exit 0)
+   3671 s  done c_A_m0.1_w1_observed (exit 0)
+   3671 s  done cv_truth_w100_observed (exit 0)
+   3671 s  done c_truth_w1_observed (exit 0)
+   3676 s  done cv_A_m1_w1_early (exit 0)
+   3676 s  done cv_A_m1_w1_observed (exit 0)
+   3676 s  done cv_A_m1_w100_early (exit 0)
+   3676 s  done cv_A_m1_w100_observed (exit 0)
+   3676 s  done cv_A_m0.1_w1_early (exit 0)
+   3676 s  done cv_A_m0.1_w1_observed (exit 0)
+   3676 s  done c_A_m1_w100_observed (exit 0)
+   3676 s  done c_A_m0.1_w100_early (exit 0)
+   3676 s  done cv_truth_w1_observed (exit 0)
+variant                            D% start   D% fit  t+ fit  rel rmse  wall s
+cv_A_m1_w1_early                       8.86    29.16  0.3522  4.89e-03    3654
+cv_A_m1_w1_observed                    8.86    30.62  0.3106  1.00e-02    3654
+cv_A_m1_w100_early                     8.86    16.63  0.2787  5.18e-03    3651
+cv_A_m1_w100_observed                  8.86    20.42  0.2344  4.62e-03    3653
+cv_A_m0.1_w1_early                     8.86    13.84  0.0861  4.89e-03    3653
+cv_A_m0.1_w1_observed                  8.86    14.16  0.0766  4.93e-03    3651
+cv_A_m0.1_w100_early                   8.86    11.92  0.0827  5.06e-03    3646
+cv_A_m0.1_w100_observed                8.86    11.86  0.0700  4.54e-03    3648
+c_A_m1_w1_early                        8.86    29.12  0.2711  4.72e-03    3639
+c_A_m1_w1_observed                     8.86    30.09  0.2523  4.81e-03    3624
+c_A_m1_w100_early                      8.86    21.03  0.0729  8.84e-03    3635
+c_A_m1_w100_observed                   8.86    15.17  0.0869  4.45e-03    3653
+c_A_m0.1_w1_early                      8.86    14.10  0.0676  4.72e-03    3640
+c_A_m0.1_w1_observed                   8.86    14.08  0.0631  4.69e-03    3646
+c_A_m0.1_w100_early                    8.86    12.89  0.0629  6.37e-03    3649
+c_A_m0.1_w100_observed                 8.86    10.67  0.0502  4.56e-03    3642
+cv_truth_w1_observed                   0.00     0.00  0.0000  6.14e-03    3649
+cv_truth_w100_observed                 0.00     0.00  0.0000  4.49e-03    3649
+c_truth_w1_observed                    0.00     0.00  0.0000  4.71e-03    3645
+c_truth_w100_observed                  0.00     0.00  0.0000  4.32e-03    3627

@@ -1,0 +1,19 @@
+{
+  "train_s": 116.11059649998788,
+  "test_s": 73.39525010006037,
+  "test_batch": 64,
+  "test_repeats": 1,
+  "seed": 1,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "epochs": 100,
+  "parameters": 65851,
+  "device": "NVIDIA GeForce RTX 4090",
+  "description": "Same supervised checkpoint; 150 AdamW updates to an independent network copy per material, minimizing the concentration conservation residual at its observed times. Learning rate chosen on 100 validation materials.",
+  "ttt_steps": 150,
+  "ttt_lr": 1e-05,
+  "tune_s": 0.0,
+  "shared_train": true,
+  "ttt_s": 73.39525010006037
+}

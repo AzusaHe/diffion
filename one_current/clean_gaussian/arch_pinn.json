@@ -1,0 +1,403 @@
+[
+  {
+    "name": "Standard PINN · c field",
+    "slug": "pinn_standard_c",
+    "family": "PINN refinement",
+    "one": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate.",
+    "training": [
+      "500 joint Adam steps. Initial field learning rate 10⁻³ and material learning rate 10⁻⁴.",
+      "The data loss fits measured c with weight 1. Volume and wall-flux residuals each have weight 100. The spatially integrated mass balance recovers velocity.",
+      "Physics uses 6 sampled times per current and 12 spatial integration cells. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Standard PINN · c and v fields",
+    "slug": "pinn_standard_cv",
+    "family": "PINN refinement",
+    "one": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate.",
+    "training": [
+      "500 joint Adam steps. Initial field learning rate 10⁻³ and material learning rate 10⁻⁴.",
+      "The observation loss fits measured c with weight 1. The networks model c and v. Salt, volume and wall-flux residuals each have weight 100.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Staged PINN · c field · physics weight 1",
+    "slug": "pinn_staged_c_w1",
+    "family": "PINN refinement",
+    "one": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "350 Adam steps fit c alone at initial learning rate 10⁻³, followed by 100 physics warmup steps with the material logits held fixed.",
+      "500 joint Adam steps and 16 L-BFGS iterations. Warmup and joint Adam share a cosine schedule starting at 10⁻⁴ for fields. The initial joint-stage rate multiplier for material logits is 10.",
+      "Observation loss on c has weight 1. Volume and wall-flux terms have weight 1, and velocity follows from the integrated mass balance.",
+      "Physics uses 6 sampled times per current and 12 spatial integration cells. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Staged PINN · c field · physics weight 100",
+    "slug": "pinn_staged_c_w100",
+    "family": "PINN refinement",
+    "one": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "2,281 per material, including 2,273 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "350 Adam steps fit c alone at initial learning rate 10⁻³, followed by 100 physics warmup steps with the material logits held fixed.",
+      "500 joint Adam steps and 16 L-BFGS iterations. Warmup and joint Adam share a cosine schedule starting at 10⁻⁴ for fields. The initial joint-stage rate multiplier for material logits is 10.",
+      "Observation loss on c has weight 1. Volume and wall-flux terms have weight 100, and velocity follows from the integrated mass balance.",
+      "Physics uses 6 sampled times per current and 12 spatial integration cells. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Staged PINN · c and v fields · physics weight 1",
+    "slug": "pinn_staged_cv_w1",
+    "family": "PINN refinement",
+    "one": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "350 Adam steps fit c alone at initial learning rate 10⁻³, followed by 100 physics warmup steps with the material logits held fixed.",
+      "500 joint Adam steps and 16 L-BFGS iterations. Warmup and joint Adam share a cosine schedule starting at 10⁻⁴ for fields. The initial joint-stage rate multiplier for material logits is 10.",
+      "Observation loss on c has weight 1. Salt, volume and wall-flux residuals each have weight 1. Physics begins updating the velocity network during warmup.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Staged PINN · c and v fields · physics weight 100",
+    "slug": "pinn_staged_cv_w100",
+    "family": "PINN refinement",
+    "one": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "350 Adam steps fit c alone at initial learning rate 10⁻³, followed by 100 physics warmup steps with the material logits held fixed.",
+      "500 joint Adam steps and 16 L-BFGS iterations. Warmup and joint Adam share a cosine schedule starting at 10⁻⁴ for fields. The initial joint-stage rate multiplier for material logits is 10.",
+      "Observation loss on c has weight 1. Salt, volume and wall-flux residuals each have weight 100. Physics begins updating the velocity network during warmup.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Data-first PINN · c and v fields",
+    "slug": "pinn_data_first",
+    "family": "PINN refinement",
+    "one": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "Fit c and reconstructed v at fixed material logits with 850 Adam steps (initial rate 10⁻³) and 30 L-BFGS iterations.",
+      "Then train fields and material logits jointly with 500 Adam steps and 16 L-BFGS iterations. Initial rates are 10⁻⁴ for the fields and 10⁻³ for the logits. The c and v data terms each carry weight 0.01, and the salt, volume and wall-flux weights are 1.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Data-first PINN · fine observation grid",
+    "slug": "pinn_fine",
+    "family": "PINN refinement",
+    "one": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 104 times × 40 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "4,554 per material, including 4,546 NN parameters and 8 material logits",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 104 times × 40 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "tanh in all three hidden layers of each base MLP and a linear scalar output. A sigmoid maps the eight independent material logits to normalized transport coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "Fit c and reconstructed v at fixed material logits with 850 Adam steps (initial rate 10⁻³) and 30 L-BFGS iterations.",
+      "Then train fields and material logits jointly with 500 Adam steps and 16 L-BFGS iterations. Initial rates are 10⁻⁴ for the fields and 10⁻³ for the logits. The c and v data terms each carry weight 0.01, and the salt, volume and wall-flux weights are 1.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. The batch contains 2 independent material fits for one current and 1 for three currents."
+    ],
+    "notes": "Each material has its own networks and eight material logits. Center initializes all normalized coefficients to 0.5. The alternative initializes them from the matching seed-0 FNO + TTT prediction. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Data-first PINN + field correction",
+    "slug": "pinn_data_correction",
+    "family": "PINN refinement",
+    "one": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "Base fields use tanh → tanh → tanh → linear. Corrections use sine → tanh → tanh → linear and start with zero output weights and bias. A sigmoid bounds the eight material coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "Fit c and reconstructed v at fixed material logits with 850 Adam steps (initial rate 10⁻³) and 30 L-BFGS iterations.",
+      "Then train fields and material logits jointly with 500 Adam steps and 16 L-BFGS iterations. Initial rates are 10⁻⁴ for the fields and 10⁻³ for the logits. The c and v data terms each carry weight 0.01, and the salt, volume and wall-flux weights are 1.",
+      "Freeze the two base networks and eight fixed residual-scaling constants. Train the correction networks and material logits for 500 Adam steps (initial rate 10⁻³ for both) and 16 L-BFGS iterations. The c and v data terms each carry weight 0.01 and the salt, volume and wall-flux terms each carry weight 1.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "The correction starts from the completed data-first fit initialized by FNO + TTT. Counts exclude eight fixed amplitude and frequency constants calculated from the residuals. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Solver-seeded PINN + field correction · data weight 0.01",
+    "slug": "pinn_solver_correction",
+    "family": "PINN refinement",
+    "one": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "Base fields use tanh → tanh → tanh → linear. Corrections use sine → tanh → tanh → linear and start with zero output weights and bias. A sigmoid bounds the eight material coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "Initialize coefficients from FNO + TTT, simulate concentration at the observed times and reconstruct velocity. Fit the base fields at fixed coefficients with 850 Adam steps (initial rate 10⁻³) and 30 L-BFGS iterations.",
+      "Freeze the two base networks and eight fixed residual-scaling constants. Train the correction networks and material logits for 500 Adam steps (initial rate 10⁻³ for both) and 16 L-BFGS iterations. The c and v data terms each carry weight 0.01 and the salt, volume and wall-flux terms each carry weight 1.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Both solver-correction weights start from FNO + TTT and share the fitted solver fields. Counts exclude eight fixed amplitude and frequency constants calculated from the residuals. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  },
+  {
+    "name": "Solver-seeded PINN + field correction · data weight 1",
+    "slug": "pinn_solver_correction_weight1",
+    "family": "PINN refinement",
+    "one": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "One current per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "three": {
+      "params": "9,100 per material, including 9,092 NN parameters and 8 material logits. Final stage trains 4,554 and freezes 4,546.",
+      "layers": [
+        "Concentration MLP 3 → 32 → 32 → 32 → 1.",
+        "Separate velocity MLP 3 → 32 → 32 → 32 → 1.",
+        "Two additional correction MLPs, one per field, each 3 → 32 → 32 → 32 → 1.",
+        "Eight independent scalar material logits specify four coefficients for log D and four for t₊."
+      ],
+      "input": "Three currents evaluated by the same field networks per material. Up to 13 times × 20 bins per current. Coordinate features per point are 2x−1, 2√(t/tₘₐₓ)−1 and ι/5."
+    },
+    "activation": "Base fields use tanh → tanh → tanh → linear. Corrections use sine → tanh → tanh → linear and start with zero output weights and bias. A sigmoid bounds the eight material coefficients.",
+    "optimizer": "Adam uses β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸, zero weight decay and cosine decay toward 1% of the initial learning rate. The batched L-BFGS solver uses a history of 20, a fixed set of collocation points per L-BFGS stage and Armijo backtracking.",
+    "training": [
+      "Initialize coefficients from FNO + TTT, simulate concentration at the observed times and reconstruct velocity. Fit the base fields at fixed coefficients with 850 Adam steps (initial rate 10⁻³) and 30 L-BFGS iterations.",
+      "Freeze the two base networks and eight fixed residual-scaling constants. Train the correction networks and material logits for 500 Adam steps (initial rate 10⁻³ for both) and 16 L-BFGS iterations. The c and v data terms each carry weight 1 and the salt, volume and wall-flux terms each carry weight 1.",
+      "Physics samples 64 space–time points per current. Observation predictions use 2-point cell quadrature. Eight independent material fits run in parallel."
+    ],
+    "notes": "Both solver-correction weights start from FNO + TTT and share the fitted solver fields. Counts exclude eight fixed amplitude and frequency constants calculated from the residuals. Affine-layer parameter counts, including biases, are 128, 1,056, 1,056 and 33 per field.",
+    "sources": [
+      "one_current/clean_gaussian/pinn_benchmark.py",
+      "one_current/pinn_runs/solver_pinn.py",
+      "one_current/pinn_runs/gpu_eval.py"
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "train_s": 4.421858299989253,
+  "test_s": 0.0015419799950905145,
+  "test_batch": 128,
+  "test_repeats": 10,
+  "seed": 2,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "epochs": 100,
+  "parameters": 23888,
+  "device": "CPU",
+  "description": "Supervised coefficient regression using binned concentration, reconstructed velocity, per-current time, mask and current. Best validation epoch."
+}

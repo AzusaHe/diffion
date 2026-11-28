@@ -1,0 +1,20 @@
+{
+  "train_s": 0.0,
+  "n_train": 0,
+  "test_s": 551.9244745008182,
+  "median_fit_s": 1.7360639499966055,
+  "device": "CPU",
+  "median_evals": 147.5,
+  "median_c_rmse": 0.00010079213757859265,
+  "description": "40-cell conservative finite-volume solver with an implicit midpoint corrector, fit to 20 bin averages. 150 iterations, 220 value/gradient evaluations.",
+  "timing": "Sum of elapsed per-material fitting times in concurrent CPU workers, excluding compilation and warm-start prediction.",
+  "warm_start": "mlp_ttt",
+  "budget": "150 iterations, 220 value/gradient evaluations",
+  "statuses": {
+    "ABNORMAL_TERMINATION_IN_LNSRCH": 2,
+    "CONVERGENCE: NORM_OF_PROJECTED_GRADIENT_<=_PGTOL": 3,
+    "CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH": 209,
+    "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT": 86
+  },
+  "n_test": 300
+}

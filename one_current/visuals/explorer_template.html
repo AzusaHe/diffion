@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One versus three current densities · Material comparisons</title>
+<style>
+:root{color-scheme:light;--ink:#172e34;--soft:#52676a;--rule:#d2ddda;--page:#f3f6f4;--low:#3366a0;--mid:#a85926;--high:#28776e;--accent:#165f58;--sans:"Inter","Segoe UI",Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--sans);font-variant-numeric:tabular-nums}
+main{max-width:1200px;margin:auto;padding:clamp(16px,3vw,42px)}h1,h2,h3,p{margin:0}h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(34px,4.3vw,56px);font-weight:400;line-height:1.15;letter-spacing:-.035em}h2{font-size:19px;line-height:1.3;font-weight:650}h3{font-size:14px;line-height:1.3;font-weight:650}
+header>p{margin-top:8px;color:var(--soft)}header{margin-bottom:24px}.controls,.panel,.more{background:white;border:1px solid var(--rule);border-radius:12px}
+.controls{display:grid;grid-template-columns:minmax(220px,1.6fr) minmax(165px,.85fr) minmax(110px,.6fr) minmax(100px,.6fr);gap:16px;padding:16px 20px;margin-bottom:16px}
+label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px;color:var(--soft)}select{width:100%;min-width:0;padding:8px 27px 8px 9px;color:var(--ink);font:500 14px/1.45 var(--sans);border:1px solid #afbfbb;border-radius:6px;background-color:white}
+select:focus-visible,summary:focus-visible{outline:3px solid #367cb6;outline-offset:2px}select:disabled{background:#f1f4f2;color:#586765}
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.85fr);gap:16px;align-items:start}.panel{padding:20px}.sub{color:var(--soft);font-size:13px;margin-top:4px}
+.plotbox{margin:12px auto 0;max-width:540px}#plot{width:100%;height:auto;display:block;overflow:visible}.gridline{stroke:#dce5e2;stroke-width:1}.axis{stroke:#657876;stroke-width:1}.ticks{font:12px var(--sans);fill:var(--soft)}.axislabel{font:600 13px var(--sans);fill:var(--ink)}.diagonal{stroke:#52676a;stroke-width:1.2;stroke-dasharray:4 4}.point{cursor:pointer;opacity:.62}.point:hover{opacity:1}.selected-point{stroke:#152e30;stroke-width:2.3;fill:none;pointer-events:none}
+.legend{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;color:var(--soft);font-size:13px;margin-top:5px}.legend>span{display:inline-flex;align-items:center;gap:6px}.marker{display:inline-block;width:9px;height:9px}.low{border-radius:50%;background:var(--low)}.middle{background:var(--mid)}.high{width:0;height:0;border-style:solid;border-width:0 5.3px 9.5px;border-color:transparent transparent var(--high)}.dash{display:inline-block;width:15px;border-top:1.5px dashed #52676a}
+.cohort{border-top:1px solid var(--rule);margin-top:15px;padding-top:14px}.summarygrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}.statlabel{display:block;color:var(--soft);font-size:13px}.statvalue{font-size:22px;font-weight:600;color:var(--ink)}.note{font-size:12px;color:var(--soft);margin-top:7px}
+.case-selector{margin-top:14px}.casearea{margin-top:15px}.casearea h3,.casearea table,.casearea dl,.more table{margin-top:8px}.casearea h3:not(:first-child){margin-top:19px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;font-weight:400}th:first-child,td:first-child{text-align:left}th{color:var(--soft);font-size:12px;font-weight:600}td{white-space:nowrap}tbody tr.active{background:#e9f4ef}.casearea dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px}.casearea dt{color:var(--soft)}.casearea dd{text-align:right;margin:0}.current-values{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}.current-values div{padding:6px 8px;border:1px solid var(--rule);border-radius:5px}.current-values .chosen{border-color:#63968c;background:#edf7f2}.current-values span{font-size:12px;display:block;color:var(--soft)}.current-values b{font-weight:600}
+.more{margin-top:16px;padding:14px 20px}.more summary{cursor:pointer;font-weight:600}.tablewrap{overflow:auto}.more th:first-child,.more td:first-child{white-space:normal}.more td:first-child{min-width:185px}.more tr.current{background:#f0f6f3}.sr{position:absolute;width:1px;height:1px;margin:-1px;clip-path:inset(50%);overflow:hidden}
+.curve-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:17px}.curve-heading h3{margin-top:0}.curve-heading label{min-width:85px}.curve-heading label[hidden]{display:none}.curve-heading select{padding:3px 4px;font-size:12px}#curve{display:block;width:100%;height:auto;max-height:245px;margin-top:8px}.curve-legend{display:flex;flex-wrap:wrap;gap:5px 12px;color:var(--soft);font-size:12px}.curve-legend span{display:inline-flex;align-items:center;gap:4px}.curve-legend span[hidden]{display:none}.sample{width:18px;border-top:2px solid #2b3e49}.sample.one{border-color:#16715e;border-top-style:dashed}.sample.three{border-color:#b35427;border-top-style:dotted}.sample.observed{height:10px;width:13px;background:#dfefe8;border:0}
+@media(max-width:820px){.controls{grid-template-columns:1fr 1fr}.layout{grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr)}.panel{padding:15px}main{padding:16px}}
+@media(max-width:700px){.layout{grid-template-columns:1fr}.controls{padding:13px;gap:10px}.legend{gap:6px 12px}.plotbox{max-width:460px}.controls label:first-child{grid-column:span 2}.controls{grid-template-columns:1fr 1fr 1fr}.controls label:first-child{grid-column:1 / -1}}
+@media(max-width:420px){main{padding:12px}.controls{grid-template-columns:1fr 1fr}.controls label:nth-child(2){grid-column:1 / -1}.panel{padding:13px}.more{padding:12px}.ticks{font-size:14px}.axislabel{font-size:15px}}
+</style>
+</head>
+<body><main>
+<header><h1>One versus three current densities</h1><p>Each fit is scored between the minimum and maximum concentration reached by its own measurements.</p></header>
+<div class="controls" aria-label="Comparison filters">
+  <label>Method and initialization<select id="method"></select></label>
+  <label>Property<select id="metric"><option value="D">Diffusivity · relative L₂ (%)</option><option value="t">Transference number · RMSE</option></select></label>
+  <label>Assigned current<select id="rank"><option value="all">All currents</option><option value="0">Low current</option><option value="1">Middle current</option><option value="2">High current</option></select></label>
+  <label>Training seed<select id="seed"></select></label>
+</div>
+<div class="layout">
+  <section class="panel">
+    <h2 id="plot-heading">Paired errors</h2><p class="sub" id="cohort-count"></p>
+    <div class="plotbox"><svg id="plot" viewBox="0 0 470 426" role="img" aria-labelledby="plot-heading plot-description"></svg></div>
+    <div class="legend" aria-label="Scatter legend"><span><i class="marker low"></i>Low</span><span><i class="marker middle"></i>Middle</span><span><i class="marker high"></i>High</span><span><i class="dash"></i>Equal error</span></div>
+    <p id="plot-description" class="note">Both axes use the same logarithmic scale. Points above the diagonal have higher error with one current. Select a point to inspect its material.</p>
+    <div class="cohort"><h3>Median error in this selection</h3><div class="summarygrid">
+      <div><span class="statlabel">One current</span><strong id="one-median" class="statvalue"></strong></div>
+      <div><span class="statlabel">Three currents</span><strong id="three-median" class="statvalue"></strong></div>
+    </div><p id="median-note" class="note"></p></div>
+  </section>
+  <section class="panel">
+    <h2>Inspect a material</h2><label class="case-selector">Source material ID<select id="material"></select></label>
+    <div class="casearea">
+      <h3>Current density</h3><div id="currents" class="current-values"></div><p class="note" id="chosen-current"></p>
+      <h3>Observed concentration ranges</h3><dl><dt>One current</dt><dd id="one-range"></dd><dt>Three currents</dt><dd id="three-range"></dd></dl><p class="note" id="grid-note"></p>
+      <div class="curve-heading"><h3 id="curve-heading">Recovered transport curve</h3><label id="curve-seed-label">Curve seed<select id="curve-seed"></select></label></div>
+      <svg id="curve" viewBox="0 0 390 208" role="img" aria-labelledby="curve-heading curve-text"></svg>
+      <div class="curve-legend"><span><i class="sample"></i>True curve</span><span><i class="sample one"></i>One current</span><span id="historical-legend"><i class="sample three"></i>Three currents</span><span><i class="sample observed"></i>One-current range</span></div>
+      <p class="note" id="curve-text"></p>
+      <h3 id="case-metric"></h3><div class="tablewrap"><table><thead><tr><th>Fit</th><th>One current</th><th>Three currents</th></tr></thead><tbody id="case-scores"></tbody></table></div>
+      <p class="note">Each column uses its observed concentration range shown above.</p>
+    </div>
+  </section>
+</div>
+<!--FIELD_VIEW-->
+<details class="more" id="comparison"><summary id="comparison-label">Compare methods on this material</summary><p class="note">Each row uses the range observed by that method and protocol on this material. Native-grid PINNs use the full-resolution fields. Learned rows average the visible training seeds.</p>
+  <div class="tablewrap"><table><thead><tr><th>Method and initialization</th><th>Fits</th><th>One current</th><th>Three currents</th></tr></thead><tbody id="other-methods"></tbody></table></div>
+</details><div id="live" class="sr" aria-live="polite"></div>
+</main>
+<script id="data" type="application/json">/*__CASE_DATA__*/</script>
+<script>
+"use strict";
+const {materials,methods,labels,curves,windows,methodGrids}=JSON.parse(document.getElementById("data").textContent);
+const el=id=>document.getElementById(id);
+const selects=Object.fromEntries(["method","metric","rank","seed","material"].map(id=>[id,el(id)]));
+const ranks=["Low","Middle","High"];
+const colors=["#3366a0","#a85926","#28776e"];
+const numerics=["lbfgs","NM","CMAES","BO"];
+const learnedOrder=["mlp_supervised","mlp_ttt","fno_supervised","fno_ttt"];
+function order(a,b){
+  if(labels[a][0]!==labels[b][0]) return ["Pretrained estimators","Numerical inversion","PINN refinements"].indexOf(labels[a][0])-["Pretrained estimators","Numerical inversion","PINN refinements"].indexOf(labels[b][0]);
+  if(learnedOrder.includes(a)) return learnedOrder.indexOf(a)-learnedOrder.indexOf(b);
+  if(numerics.includes(a.split("_")[0])){const delta=numerics.indexOf(a.split("_")[0])-numerics.indexOf(b.split("_")[0]); if(delta) return delta;}
+  return labels[a][1].localeCompare(labels[b][1], "en", {numeric:true});
+}
+const keys=Object.keys(methods).sort(order);
+const opt=(value,label)=>new Option(label,value);
+for(const group of new Set(keys.map(key=>labels[key][0]))){
+  const parent=document.createElement("optgroup"); parent.label=group;
+  for(const key of keys.filter(key=>labels[key][0]===group)) parent.append(opt(key,labels[key][1]));
+  selects.method.append(parent);
+}
+selects.method.value="fno_ttt";
+const metricInfo={D:{one:2,three:3,name:"Diffusivity error",ylabel:"One current · relative L₂ error (%)",xlabel:"Three currents · relative L₂ error (%)",unit:"%"},t:{one:4,three:5,name:"Transference-number RMSE",ylabel:"One current · t₊ RMSE",xlabel:"Three currents · t₊ RMSE",unit:""}};
+const mean=values=>values.reduce((sum,x)=>sum+x,0)/values.length;
+function median(values){const a=[...values].sort((x,y)=>x-y),i=Math.floor(a.length/2);return a.length%2?a[i]:(a[i-1]+a[i])/2;}
+function format(value,sig=4){
+  if(value===0) return "0";
+  if(Math.abs(value)<.001 || Math.abs(value)>=10000) return value.toExponential(sig-1).replace(/\.?(0+)(?=e)/,"").replace("e+","e");
+  return Number(value.toPrecision(sig)).toString();
+}
+function errorFmt(v){return format(v,4)+metricInfo[selects.metric.value].unit;}
+function svgNode(tag,props,content){
+  const node=document.createElementNS("http://www.w3.org/2000/svg",tag);
+  for(const [key,value] of Object.entries(props)) node.setAttribute(key,value);
+  if(content!==undefined) node.textContent=content;
+  return node;
+}
+function tableRow(values,css){
+  const row=document.createElement("tr"); if(css)row.className=css;
+  for(const v of values){const cell=document.createElement("td");cell.textContent=v;row.append(cell);}
+  return row;
+}
+let shown=[],focusSeed=null,pointCoords=[];
+function syncSeeds(){
+  const previous=selects.seed.value;
+  const available=[...new Set(methods[selects.method.value].map(row=>row[1]))].sort((a,b)=>a-b);
+  selects.seed.replaceChildren();
+  if(available.length===1 && available[0]===-1){
+    selects.seed.add(opt("all","Single fit"));selects.seed.disabled=true;
+  }else{
+    selects.seed.add(opt("all","All seeds"));available.forEach(s=>selects.seed.add(opt(s,"Seed "+s)));
+    selects.seed.disabled=false;selects.seed.value=available.includes(+previous)&&previous!==""&&previous!=="all"?previous:"all";
+  }
+}
+function syncCases(){
+  const previous=selects.material.value,rank=selects.rank.value,seed=selects.seed.value;
+  shown=methods[selects.method.value].filter(r=>(rank==="all"||materials[r[0]][0]===+rank) && (seed==="all"||r[1]===+seed));
+  const ids=[...new Set(shown.map(row=>row[0]))].sort((a,b)=>a-b);
+  selects.material.replaceChildren(...ids.map(id=>opt(id,String(id))));
+  if(ids.includes(+previous)&&previous!=="") selects.material.value=previous;
+  return ids.length;
+}
+function plot(){
+  const svg=el("plot"),info=metricInfo[selects.metric.value];
+  const values=methods[selects.method.value].flatMap(r=>[r[info.one],r[info.three]]);
+  const pos=values.filter(v=>v>0),hasZero=pos.length!==values.length;
+  let bottom=pos.length?Math.floor(Math.log10(Math.min(...pos))):-1,top=pos.length?Math.ceil(Math.log10(Math.max(...pos))):0;
+  if(hasZero) bottom-=1;
+  if(top<=bottom)top=bottom+1;
+  const left=72,upper=12,side=345,xEnd=left+side,yEnd=upper+side;
+  const frac=v=>v===0?0:(Math.log10(v)-bottom)/(top-bottom);
+  const x=v=>left+side*frac(v),y=v=>yEnd-side*frac(v);
+  const nodes=[svgNode("title",{},info.name+" for one versus three currents"),svgNode("desc",{},el("plot-description").textContent)];
+  const tickStep=Math.ceil((top-bottom)/6);
+  const ticks=Array.from({length:top-bottom+1},(_,i)=>bottom+i).filter((n,i)=>i%tickStep===0||n===top);
+  for(const power of ticks){
+    const coord=side*(power-bottom)/(top-bottom),label=hasZero&&power===bottom?"0":(power < -2 || power>3?"1e"+power:String(10**power));
+    nodes.push(svgNode("line",{x1:left+coord,x2:left+coord,y1:upper,y2:yEnd,class:"gridline"}),svgNode("line",{x1:left,x2:xEnd,y1:yEnd-coord,y2:yEnd-coord,class:"gridline"}));
+    nodes.push(svgNode("text",{x:left+coord,y:yEnd+19,"text-anchor":"middle",class:"ticks"},label),svgNode("text",{x:left-9,y:yEnd-coord+4,"text-anchor":"end",class:"ticks"},label));
+  }
+  nodes.push(svgNode("line",{x1:left,y1:yEnd,x2:xEnd,y2:upper,class:"diagonal"}),svgNode("line",{x1:left,y1:yEnd,x2:xEnd,y2:yEnd,class:"axis"}),svgNode("line",{x1:left,y1:upper,x2:left,y2:yEnd,class:"axis"}));
+  nodes.push(svgNode("text",{x:left+side/2,y:408,"text-anchor":"middle",class:"axislabel"},info.xlabel),svgNode("text",{transform:"translate(17 "+(upper+side/2)+") rotate(-90)","text-anchor":"middle",class:"axislabel"},info.ylabel));
+  pointCoords=[];
+  for(const row of shown){
+    const [mid,seed]=row,rank=materials[mid][0],cx=x(row[info.three]),cy=y(row[info.one]);
+    const attrs={"class":"point",fill:colors[rank],"data-material":mid,"data-seed":seed};
+    let point;
+    if(rank===0)point=svgNode("circle",{...attrs,cx,cy,r:3.0});
+    else if(rank===1)point=svgNode("rect",{...attrs,x:cx-2.7,y:cy-2.7,width:5.4,height:5.4});
+    else point=svgNode("polygon",{...attrs,points:(cx)+","+(cy-3.6)+" "+(cx-3.4)+","+(cy+2.8)+" "+(cx+3.4)+","+(cy+2.8)});
+    const tip="Material "+mid+(seed>=0?", seed "+seed:"")+" · "+ranks[rank]+" current · one "+errorFmt(row[info.one])+" · three "+errorFmt(row[info.three]);
+    point.append(svgNode("title",{},tip));
+    nodes.push(point);pointCoords.push({mid,seed,cx,cy});
+  }
+  nodes.push(svgNode("g",{id:"selection","aria-hidden":"true"}));svg.replaceChildren(...nodes);
+}
+function highlight(){
+  const selected=pointCoords.filter(p=>p.mid===+selects.material.value&&(focusSeed===null||focusSeed===p.seed));
+  el("selection").replaceChildren(...selected.map(p=>svgNode("circle",{cx:p.cx,cy:p.cy,r:6.4,"class":"selected-point"})));
+}
+function propertyAt(z,c,metric){
+  const u=Math.max(0,Math.min(1,c/2)), a=1-u;
+  const basis=[a*a*a,3*u*a*a,3*u*u*a,u*u*u];
+  const first=metric==="D"?0:4;
+  const q=basis.reduce((sum,b,i)=>sum+b*z[first+i],0);
+  return metric==="D" ? .1*Math.exp(Math.log(20)*q) : -.25+1.25*q;
+}
+function curvePanel(fits){
+  const mid=selects.material.value,method=selects.method.value,metric=selects.metric.value;
+  const picker=el("curve-seed"),available=fits.map(r=>r[1]);
+  const seed=focusSeed!==null&&available.includes(focusSeed)?focusSeed:available[0];
+  picker.replaceChildren(...available.map(s=>opt(s,s<0?"Single fit":"Seed "+s)));
+  picker.value=String(seed);el("curve-seed-label").hidden=available.length===1;
+  const [one,three]=curves.fits[method][seed<0?"fixed":String(seed)][mid];
+  const [oneLo,oneHi,threeLo,threeHi]=windows[methodGrids[method]][mid];
+  const c0=Math.min(oneLo,threeLo),c1=Math.max(oneHi,threeHi);
+  const series=[{key:"true",z:curves.truth[mid],lo:c0,hi:c1,color:"#2b3e49",width:2.8,dash:"none"},
+    {key:"one",z:one,lo:oneLo,hi:oneHi,color:"#16715e",width:2,dash:"7 4"}];
+  if(three)series.push({key:"three",z:three,lo:threeLo,hi:threeHi,color:"#b35427",width:2.2,dash:"1 4"});
+  el("historical-legend").hidden=!three;
+  for(const s of series){
+    s.concentrations=Array.from({length:121},(_,i)=>s.lo+(s.hi-s.lo)*i/120);
+    s.values=s.concentrations.map(c=>propertyAt(s.z,c,metric));
+  }
+  const yy=series.flatMap(s=>s.values),min=Math.min(...yy),max=Math.max(...yy);
+  const pad=Math.max((max-min)*.08,Math.abs(max)*.003,1e-6), low=min-pad,high=max+pad;
+  const left=51,right=374,top=12,bottom=152;
+  const x=c=>left+(c-c0)/(c1-c0)*(right-left),y=v=>bottom-(v-low)/(high-low)*(bottom-top);
+  const prop=metric==="D"?"D(c)":"t₊(c)",title=metric==="D"?"Recovered diffusivity":"Recovered transference number";
+  const nodes=[svgNode("title",{},title+", material "+mid),svgNode("desc",{},"Each estimate spans its own observed concentration range. The shaded area marks the one-current range.")];
+  nodes.push(svgNode("rect",{x:x(oneLo),y:top,width:x(oneHi)-x(oneLo),height:bottom-top,fill:"#dfefe8"}));
+  for(let i=0;i<=4;i++){
+    const t=i/4,c=c0+(c1-c0)*t;
+    nodes.push(svgNode("line",{x1:x(c),x2:x(c),y1:bottom,y2:bottom+4,class:"axis"}),svgNode("text",{x:x(c),y:bottom+18,class:"ticks","text-anchor":"middle"},format(c,3)));
+  }
+  for(let i=0;i<3;i++){
+    const value=min+(max-min)*i/2;
+    if(i>0 && min===max) continue;
+    nodes.push(svgNode("line",{x1:left,x2:right,y1:y(value),y2:y(value),class:"gridline"}),svgNode("text",{x:left-5,y:y(value)+4,class:"ticks","text-anchor":"end"},format(value,3)));
+  }
+  nodes.push(svgNode("line",{x1:left,x2:right,y1:bottom,y2:bottom,class:"axis"}),svgNode("text",{x:(left+right)/2,y:bottom+44,"text-anchor":"middle",class:"axislabel"},"Concentration, c"),svgNode("text",{x:left,y:10,class:"axislabel"},prop));
+  for(const s of series){
+    const pts=s.values.map((v,i)=>x(s.concentrations[i]).toFixed(3)+","+y(v).toFixed(3)).join(" ");
+    nodes.push(svgNode("polyline",{points:pts,fill:"none",stroke:s.color,"stroke-width":s.width,"stroke-dasharray":s.dash,"stroke-linecap":"round","data-series":s.key}));
+  }
+  el("curve").replaceChildren(...nodes);el("curve-heading").textContent=title;
+  el("curve-text").textContent=three?"Each estimate spans its own observed concentration range.":"The archive supplies three-current TTT coefficients for seed 0 and paired error scores for every seed.";
+}
+function updateCase(){
+  const mid=+selects.material.value,m=materials[mid],info=metricInfo[selects.metric.value],seed=selects.seed.value;
+  const fits=shown.filter(r=>r[0]===mid).sort((a,b)=>a[1]-b[1]);
+  // Each main cohort includes at least one case from every current band.
+  if(!m||!fits.length) return;
+  const curr=el("currents");curr.replaceChildren();
+  ranks.forEach((name,index)=>{
+    const box=document.createElement("div"),heading=document.createElement("span"),number=document.createElement("b");
+    if(index===m[0])box.className="chosen";
+    heading.textContent=name;number.textContent=format(m[2+index],5);box.append(heading,number);curr.append(box);
+  });
+  el("chosen-current").textContent=ranks[m[0]]+" ("+format(m[1],5)+") was selected for the one-current fit. Densities and concentrations are dimensionless.";
+  const grid=methodGrids[selects.method.value],[oneLo,oneHi,threeLo,threeHi]=windows[grid][mid];
+  el("one-range").textContent=format(oneLo,5)+" – "+format(oneHi,5);
+  el("three-range").textContent=format(threeLo,5)+" – "+format(threeHi,5);
+  el("grid-note").textContent=grid==="native"?"Ranges from the native grid, 40 cells and up to 104 times.":"Ranges from the binned grid, 20 bins and up to 13 times.";
+  el("diffion-fields").hidden=grid==="native";
+  el("case-metric").textContent=info.name+(info.unit?" (%)":"");
+  el("case-scores").replaceChildren(...fits.map(row=>tableRow([row[1]<0?"Single fit":"Seed "+row[1],errorFmt(row[info.one]),errorFmt(row[info.three])],row[1]===focusSeed?"active":"")));
+  curvePanel(fits);
+  const methodRows=[];
+  for(const key of keys){
+    const paired=methods[key].filter(r=>r[0]===mid&&(seed==="all"||r[1]<0||r[1]===+seed));
+    if(!paired.length)continue;
+    methodRows.push(tableRow([labels[key][1],paired.length,errorFmt(mean(paired.map(r=>r[info.one]))),errorFmt(mean(paired.map(r=>r[info.three])))],key===selects.method.value?"current":""));
+  }
+  el("other-methods").replaceChildren(...methodRows);
+  el("comparison-label").textContent="Compare "+methodRows.length+" methods and starts on material "+mid;
+  highlight();
+  document.dispatchEvent(new CustomEvent("diffion:material",{detail:{materialId:mid}}));
+}
+function refresh(){
+  const n=syncCases(), info=metricInfo[selects.metric.value];
+  el("plot-heading").textContent=labels[selects.method.value][1];
+  const seeds=[...new Set(shown.map(row=>row[1]))];
+  el("cohort-count").textContent=n+" matched materials · "+shown.length+" paired fits";
+  const cohortSummary=index=>mean(seeds.map(s=>median(shown.filter(row=>row[1]===s).map(row=>row[index]))));
+  el("one-median").textContent=errorFmt(cohortSummary(info.one));el("three-median").textContent=errorFmt(cohortSummary(info.three));
+  el("median-note").textContent=seeds.length>1?"Average of the three seed-specific material medians.":"Median across the matched materials.";
+  plot();updateCase();
+  el("live").textContent=labels[selects.method.value][1]+". "+el("cohort-count").textContent+". Median errors "+el("one-median").textContent+" and "+el("three-median").textContent+".";
+}
+selects.method.addEventListener("change",()=>{focusSeed=null;syncSeeds();refresh();});
+for(const element of [selects.seed,selects.metric,selects.rank])element.addEventListener("change",()=>{focusSeed=null;refresh();});
+selects.material.addEventListener("change",()=>{focusSeed=null;updateCase();el("live").textContent="Showing material "+selects.material.value+".";});
+el("curve-seed").addEventListener("change",()=>{focusSeed=+el("curve-seed").value;updateCase();el("live").textContent="Showing curves for seed "+focusSeed+".";});
+el("plot").addEventListener("click",event=>{
+  const point=event.target.closest(".point");if(!point)return;
+  selects.material.value=point.dataset.material;focusSeed=+point.dataset.seed;updateCase();
+  el("live").textContent="Showing material "+selects.material.value+(focusSeed<0?".":", seed "+focusSeed+".");
+});
+syncSeeds();refresh();
+</script></body></html>

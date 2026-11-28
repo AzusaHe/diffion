@@ -1,0 +1,13 @@
+{
+  "n": 8,
+  "method": "staged_c_w100",
+  "start": "fno_ttt",
+  "median_fit": {
+    "D_relL2_pct": 17.028822034422063,
+    "tplus_rmse": 0.08295705632479186,
+    "group_rmse": 0.15332305363410192,
+    "mse_lnD": 0.022323464932843866,
+    "mse_tplus": 0.0073279646974421745
+  },
+  "median_relative_c_rmse": 0.00505248809527197
+}

@@ -1,0 +1,33 @@
+{
+ "n": 30,
+ "start": "center",
+ "method": "BO",
+ "median_fit": {
+  "D_relL2_pct": 29.471872707956678,
+  "tplus_rmse": 0.11795904650393482,
+  "group_rmse": 0.13410421802982544,
+  "mse_lnD": 0.09839683458351207,
+  "mse_tplus": 0.013929232689504249
+ },
+ "median_rel_rmse": 0.007002640297069096,
+ "median_evals": 150.0,
+ "median_wall_s": 85.04872925000382,
+ "status": {
+  "used_budget": 30
+ },
+ "target_0.01": {
+  "reached": 27,
+  "median_evals": 63.0,
+  "median_wall_s": 13.460462599992752
+ },
+ "target_0.001": {
+  "reached": 0,
+  "median_evals": null,
+  "median_wall_s": null
+ },
+ "target_0.0001": {
+  "reached": 0,
+  "median_evals": null,
+  "median_wall_s": null
+ }
+}

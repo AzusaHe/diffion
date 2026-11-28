@@ -1,0 +1,19 @@
+{
+  "train_s": 2.205764799960889,
+  "test_s": 16.058316000038758,
+  "test_batch": 32,
+  "test_repeats": 1,
+  "seed": 0,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "epochs": 100,
+  "parameters": 23888,
+  "device": "CPU",
+  "description": "Same supervised checkpoint; 150 AdamW updates to an independent network copy per material, minimizing the concentration conservation residual at its observed times. Learning rate chosen on 100 validation materials.",
+  "ttt_steps": 150,
+  "ttt_lr": 1e-05,
+  "tune_s": 10.573152899974957,
+  "shared_train": true,
+  "ttt_s": 16.058316000038758
+}

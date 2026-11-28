@@ -1,0 +1,10 @@
+{
+  "train_s": 0.0,
+  "test_s": 3.789221699931659,
+  "n_train": 0,
+  "device": "cuda",
+  "test_batch": 8,
+  "description": "Independent per-material c PINN; 32-unit, 3-hidden-layer fields, 2-point cell quadrature. Up to 13 valid frames and 20 bins. Budgeted rerun: {\"steps\": 500, \"lbfgs_iters\": 0}.",
+  "shared_field_fit_s": 0.0,
+  "warm_start": "fno_ttt"
+}

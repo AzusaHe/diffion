@@ -1,0 +1,151 @@
+{
+  "budget": 1000,
+  "stages": {
+    "field_prefit": 143,
+    "physics_warmup": 286,
+    "joint": 571
+  },
+  "train_s": 0.0,
+  "test_s": 2319.502689700108,
+  "cnn_init_s": 3.58434449986089,
+  "material_ids": [
+    2,
+    3,
+    11,
+    21,
+    22,
+    32
+  ],
+  "n_test": 6,
+  "n_train": 0,
+  "device": "CPU",
+  "warm_start": "cnn",
+  "current_indices": [
+    [
+      3,
+      0,
+      5
+    ],
+    [
+      2,
+      1,
+      4
+    ],
+    [
+      7,
+      2,
+      4
+    ],
+    [
+      0,
+      2,
+      7
+    ],
+    [
+      4,
+      5,
+      6
+    ],
+    [
+      2,
+      5,
+      6
+    ]
+  ],
+  "ineligible_material_ids": [
+    37,
+    45
+  ],
+  "ineligible": [
+    {
+      "id": 37,
+      "current_indices": [
+        7,
+        5,
+        6
+      ],
+      "statuses": [
+        "concentration_limited",
+        "concentration_limited",
+        "concentration_limited"
+      ],
+      "reason": "No steady nonzero-current profile in the selected observations."
+    },
+    {
+      "id": 45,
+      "current_indices": [
+        7,
+        2,
+        6
+      ],
+      "statuses": [
+        "concentration_limited",
+        "max_time",
+        "concentration_limited"
+      ],
+      "reason": "No steady nonzero-current profile in the selected observations."
+    }
+  ],
+  "gate_status": [
+    "rejected",
+    "rejected",
+    "rejected",
+    "rejected",
+    "rejected",
+    "rejected"
+  ],
+  "failed_gates": [
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ],
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ],
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ],
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ],
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ],
+    [
+      "concentration_rmse_nd",
+      "inventory_drift_nd",
+      "mass_rms",
+      "constitutive_rms",
+      "solvent_rms"
+    ]
+  ],
+  "checkpoints": [
+    "latest_checkpoint.pt",
+    "latest_checkpoint.pt",
+    "latest_checkpoint.pt",
+    "latest_checkpoint.pt",
+    "latest_checkpoint.pt",
+    "latest_checkpoint.pt"
+  ],
+  "lbfgs_iters": 0,
+  "description": "Native CNN-initialized PINN. 143 field, 286 physics warmup and 571 joint AdamW updates. Fixed checkpoint gates; rejected fits use the terminal checkpoint for diagnosis. One CPU thread per fit when run on CPU. Fit timings are individual worker wall times."
+}

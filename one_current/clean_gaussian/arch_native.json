@@ -1,0 +1,84 @@
+[
+  {
+    "name": "Native set CNN",
+    "slug": "cnn",
+    "family": "Supervised and TTT",
+    "one": {
+      "params": "361,840 trainable",
+      "input": "One 4 × 48 × 1,160 profile and one scalar ι/5. The four channels are c − 1, normalized time, position and a valid-frame mask. Training microbatch 32.",
+      "layers": [
+        "The shared Conv2d stem projects 4 → 32 channels, kernel 3 × 9, stride (1, 2). The time × space grid becomes 48 × 580.",
+        "Four residual blocks change the channels 32 → 48 → 64 → 96 → 128. Their strides are (2, 2), (2, 2), (2, 2), (1, 2), producing grids of 24 × 290, 12 × 145, 6 × 73 and 6 × 37.",
+        "Each block applies a 3 × 7 depthwise convolution, a 1 × 1 pointwise projection to the new width, a 3 × 3 depthwise convolution, then a 1 × 1 pointwise convolution. The skip uses a strided 1 × 1 projection. Both paths use channel-wise layer normalization.",
+        "Masked spatial and temporal mean and maximum pooling concatenate two 128-vectors. Append one current value, then apply dense layers 257 → 192 → 192.",
+        "Pool the 192-vector across currents by mean, maximum and population standard deviation. Concatenate to 576 features. The set trunk is 576 → 256 → 128 with dropout 0.15 after the first activation.",
+        "Four separate linear heads each map 128 → 4. Two predict coefficient means for D and t₊. Two predict their log variances."
+      ]
+    },
+    "three": {
+      "params": "361,840 trainable",
+      "input": "Three 4 × 48 × 1,160 profiles and three corresponding ι/5 values. The same encoder and fusion layers process each profile separately. Training microbatch 16.",
+      "layers": [
+        "The shared Conv2d stem projects 4 → 32 channels, kernel 3 × 9, stride (1, 2). The time × space grid becomes 48 × 580.",
+        "Four residual blocks change the channels 32 → 48 → 64 → 96 → 128. Their strides are (2, 2), (2, 2), (2, 2), (1, 2), producing grids of 24 × 290, 12 × 145, 6 × 73 and 6 × 37.",
+        "Each block applies a 3 × 7 depthwise convolution, a 1 × 1 pointwise projection to the new width, a 3 × 3 depthwise convolution, then a 1 × 1 pointwise convolution. The skip uses a strided 1 × 1 projection. Both paths use channel-wise layer normalization.",
+        "Masked spatial and temporal mean and maximum pooling concatenate two 128-vectors. Append one current value, then apply dense layers 257 → 192 → 192.",
+        "Pool the 192-vector across currents by mean, maximum and population standard deviation. Concatenate to 576 features. The set trunk is 576 → 256 → 128 with dropout 0.15 after the first activation.",
+        "Four separate linear heads each map 128 → 4. Two predict coefficient means for D and t₊. Two predict their log variances."
+      ]
+    },
+    "activation": "SiLU follows the normalized convolutional stem, first pointwise convolution and residual sum, and the hidden dense layers. LayerNorm follows the first fusion and trunk projections. A sigmoid bounds each coefficient mean in [0, 1]. A scaled sigmoid bounds each log variance in [−8, 1].",
+    "optimizer": "AdamW, initial learning rate 3 × 10⁻⁴, weight decay 10⁻⁴, β = (0.9, 0.999), ε = 10⁻⁸. Cosine annealing reaches 10⁻⁶ over 50 epochs. Global gradient norm is clipped at 1.",
+    "training": [
+      "Each domain and current count uses its own fit from scratch on 1,402 materials. Effective batch 64 with gradient accumulation, 50 fixed epochs, model seed 242 and shuffle seed 343. Both protocols use mixed precision on the RTX 4090.",
+      "Loss combines coefficient smooth L1 (weight 1), two normalized Bernstein curve MSEs (weight 0.5 each over 64 points), and heteroscedastic Gaussian negative log likelihood (weight 0.05)."
+    ],
+    "notes": "The four checkpoints have the same shapes and parameter counts. The encoder has 91,680 parameters, per-current fusion has 86,976, the set trunk has 181,120 and each head has 516. With one current, the across-current mean and maximum coincide and standard deviation is zero.",
+    "sources": [
+      "one_current/clean_gaussian/cnn_train.py",
+      "latest_synthetic_ml/src/three_current_cnn.py",
+      "one_current/clean_gaussian/results/{domain}__{1,3}__cnn.json"
+    ]
+  },
+  {
+    "name": "Native CNN → staged PINN",
+    "slug": "cnn_pinn",
+    "family": "PINN refinement",
+    "one": {
+      "params": "204,683 stored PINN parameters (204,679 updated in joint training)",
+      "input": "One current on material 000002, with 73 valid native concentration profiles of 1,160 cells each. At each coordinate the network receives x, τ and one current ι. The per-material fit ran on a CPU.",
+      "layers": [
+        "Encode x, τ and ι as 15 features. Three scaled coordinates are accompanied by sine and cosine features of x and τ at fixed frequencies 1, 2 and 4.",
+        "Three independent field MLPs represent concentration c, total flux J and velocity v. Each has dense widths 15 → 128 → 128 → 128 → 128 → 128 → 1 and has 68,225 parameters.",
+        "Eight material logits represent four D and four t₊ controls. During joint refinement the optimizer updates four t₊ logits. A bounded steady-profile projection computes the four effective D controls.",
+        "The separately trained set CNN supplies initial coefficient means and prior uncertainties. Its 361,840 parameters remain fixed throughout the per-material PINN fit."
+      ]
+    },
+    "three": {
+      "params": "204,683 stored PINN parameters (204,679 updated in joint training)",
+      "input": "Three currents on material 000002, with 73, 72 and 75 valid profiles of 1,160 cells. All three experiments query the same field networks and share one material coefficient vector. The per-material fit ran on the RTX 4090.",
+      "layers": [
+        "Encode x, τ and ι as 15 features. Three scaled coordinates are accompanied by sine and cosine features of x and τ at fixed frequencies 1, 2 and 4.",
+        "Three independent field MLPs represent concentration c, total flux J and velocity v. Each has dense widths 15 → 128 → 128 → 128 → 128 → 128 → 1 and has 68,225 parameters.",
+        "Eight material logits represent four D and four t₊ controls. During joint refinement the optimizer updates four t₊ logits. A bounded steady-profile projection computes the four effective D controls.",
+        "The separately trained set CNN supplies initial coefficient means and prior uncertainties. Its 361,840 parameters remain fixed throughout the per-material PINN fit."
+      ]
+    },
+    "activation": "Each field MLP uses tanh after all five hidden layers. Scalar output layers are linear. The concentration readout is 2 sigmoid(g(τ) f_c) with g(τ) = 1 − exp(−τ/0.00178359). Flux uses J = ι + x(1 − x) f_J and velocity uses v = x f_v. The four free t₊ controls use sigmoid.",
+    "optimizer": "AdamW in float32, β = (0.9, 0.999), ε = 10⁻⁸, field weight decay 10⁻⁷ and zero material-logit weight decay. Each AdamW phase uses a fresh cosine schedule to 10% of its starting rates, with gradient norm clipped at 10. Final float64 L-BFGS uses learning rate 0.5, history 50, strong-Wolfe line search and at most 100 iterations.",
+    "training": [
+      "The 1,000-step field fit updates 68,225 concentration-network parameters at 10⁻³.",
+      "The 2,000-step physics warmup updates all 204,675 field parameters. The concentration learning rate starts at 10⁻⁴, and flux and velocity at 5 × 10⁻⁴. Material parameters stay fixed.",
+      "The 4,000-step joint inversion updates 204,679 parameters. Initial rates are 10⁻⁵ for concentration and 10⁻⁴ for flux, velocity and the four free t₊ logits. The weight on the CNN prior falls from 1 to 0.005.",
+      "Sampler seed 242. Per current, each AdamW batch requests 1,024 data points and a base of 512 collocation points with high-current multiplier 2.5, adaptive fraction 0.5 and refresh interval 25 steps. L-BFGS doubles the collocation budget.",
+      "The best eligible joint checkpoint was restored in all four runs. Each L-BFGS candidate failed to improve the fixed selection objective. All four reported final checkpoints passed the physics and observation gates."
+    ],
+    "notes": "All four saved configurations match in architecture, loss weights and phase settings. The device and number of observed profiles change with current count. The PINN count excludes the separately trained CNN. It includes eight stored material logits and excludes fixed buffers for the CNN prior and density law.",
+    "sources": [
+      "one_current/clean_gaussian/cnn_pinn.py",
+      "latest_synthetic_ml/src/three_current_pinn.py",
+      "latest_synthetic_ml/reference_runs/pinn_clean_accepted/run_config.json",
+      "one_current/clean_gaussian/results/{domain}__{1,3}__cnn_pinn.json"
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "n": 1947,
+  "seconds": {
+    "cpu__clean__1": 0.2735966000473127,
+    "cpu__clean__3": 0.5975321000441909,
+    "cpu__gaussian_noisy__1": 0.19759560003876686,
+    "cpu__gaussian_noisy__3": 0.5482920999638736,
+    "cuda__clean__1": 0.28102890006266534,
+    "cuda__clean__3": 0.10962629993446171,
+    "cuda__gaussian_noisy__1": 0.08390460000373423,
+    "cuda__gaussian_noisy__3": 0.1161672999151051
+  },
+  "scope": "Wall seconds to read binned arrays, derive features and physics residual fields, and form split indices and observed range for 1,947 materials. Excludes cache construction."
+}

@@ -1,0 +1,27 @@
+{
+  "checkpoint": "final_checkpoint.pt",
+  "domain": "clean",
+  "full_curve_scores": {
+    "D_coefficient_rmse_01": 0.14688433325405487,
+    "D_curve_rmse_01": 0.11099213746697396,
+    "D_true_coefficients_01": [
+      0.6906956909875395,
+      0.9637003207737929,
+      0.912723283555238,
+      0.4330285279953003
+    ],
+    "synthetic_truth_used_for_training": false,
+    "t_plus_coefficient_rmse_01": 0.18150286581775746,
+    "t_plus_curve_rmse_01": 0.07400195012816074,
+    "t_plus_true_coefficients_01": [
+      0.7075320670986884,
+      0.918941397261244,
+      0.22422144652673476,
+      0.2740539402869834
+    ]
+  },
+  "iota": 2.2285274508997333,
+  "material": 2,
+  "source_current_index": 3,
+  "status": "accepted"
+}

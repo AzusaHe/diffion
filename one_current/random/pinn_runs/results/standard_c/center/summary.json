@@ -1,0 +1,13 @@
+{
+  "n": 8,
+  "method": "standard_c",
+  "start": "center",
+  "median_fit": {
+    "D_relL2_pct": 22.20023738379343,
+    "tplus_rmse": 0.17376003595304057,
+    "group_rmse": 0.25739985492394357,
+    "mse_lnD": 0.061183661671611246,
+    "mse_tplus": 0.03019593038870065
+  },
+  "median_relative_c_rmse": 0.009396051776683328
+}

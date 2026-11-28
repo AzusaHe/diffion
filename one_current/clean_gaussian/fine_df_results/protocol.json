@@ -1,0 +1,64 @@
+{
+  "cohort": 300,
+  "cohort_source": "First 300 test materials in the existing cache/index.npz ordering",
+  "domains": [
+    "clean",
+    "gaussian_noisy"
+  ],
+  "current_counts": [
+    1,
+    3
+  ],
+  "starts": [
+    "center",
+    "fno",
+    "mlp",
+    "fno_ttt",
+    "mlp_ttt"
+  ],
+  "observation_source": "../latest_synthetic_ml/data/{clean,gaussian_noisy}/<batch>/samples/material_<id>.npz",
+  "noise": "Source Gaussian-noisy concentration_nd, noise_sigma_ref_mM=2.2; measurement noise depends on concentration.",
+  "observed_noise_rms_after_binning": 0.00037314870143873464,
+  "observations": "1160 native cells averaged in consecutive groups of four in float64. All valid native timestamps up to 151.",
+  "observation_grid": [
+    290,
+    151
+  ],
+  "solver_cells": 580,
+  "theta0_clip": [
+    1e-06,
+    0.999999
+  ],
+  "start_archives_sha256": {
+    "clean__1__fno.npz": "2aae9c14db00da1d758bd7e4fc83d1cd3e6193d1201efc3931d88b6e552b3c4f",
+    "clean__1__mlp.npz": "5a869d29f9e4e5ec8be3ad63c89ab3c06396c6c9885e9bf0519bdd185e09df0b",
+    "clean__1__fno_ttt.npz": "bafa5da13dc05bf6cfc3558766be5cd3c37d5bed1b1d2db186d1ea2a4a9a6606",
+    "clean__1__mlp_ttt.npz": "d69fa392efb342b5d8b4ad92b82e94fdc44b363102a18ae0ea7c94949137aa97",
+    "clean__3__fno.npz": "a27feb54716912b6424bd4169f6e8b2dc0bbc16730205c528f389a3fd966099f",
+    "clean__3__mlp.npz": "0ff7658335d7f9b27e8c183bef3fd2aef1153ba888797ccba772dffac3b2311b",
+    "clean__3__fno_ttt.npz": "aa6906346b165c30e179a7467efff970433eba586bef73c919825c59f90dbb23",
+    "clean__3__mlp_ttt.npz": "b354637f3fed96c6f586ec70eff5ae7a1eccc5739e537a7b221045eb4b42a711",
+    "gaussian_noisy__1__fno.npz": "78dc08d6f61fa91343de429c5a4d8b9ff708048aade9a74ee8ad959f6c08a123",
+    "gaussian_noisy__1__mlp.npz": "f2afe8fd299cd08bff14df726307153988468db91ce38004a10a3a202787dd83",
+    "gaussian_noisy__1__fno_ttt.npz": "59323b5f1c32428a893a4f226d1f12bd3a42fc7937b0b190b6acd3365c5106ca",
+    "gaussian_noisy__1__mlp_ttt.npz": "4f0781c2c14f70fffbd35230c14b7de958bd486ea9f8c38a4dbd1408c7abe925",
+    "gaussian_noisy__3__fno.npz": "88af0e99a9f83a5366a1015a33ff4caff98a79d77ed8f11b6467c97b7d05f55b",
+    "gaussian_noisy__3__mlp.npz": "b01bcbbcd953f33efc74e8e53d50cd07f7fd8697aa252680dfa648d6d4d316f4",
+    "gaussian_noisy__3__fno_ttt.npz": "7dd19135e6978da2fd7e31cd10c0699d2456c0209b23aa7a7977a0afada822cf",
+    "gaussian_noisy__3__mlp_ttt.npz": "97f7e318b9ac8500583b06bc69b555db6129bbf0db402a3906de428569e4343a"
+  },
+  "budget_evals": {
+    "nm": 500,
+    "cmaes": 500,
+    "bo": 35
+  },
+  "target_concentration_rmse": 0.0001,
+  "max_wall_s": 300.0,
+  "objective": "Square root of summed squared dimensionless concentration residuals divided by 290 times total valid current-time observations.",
+  "evaluation_policy": "First objective call includes the saved start or geometric center, counts toward budget and is eligible as best for every optimizer.",
+  "timing": "Elapsed wall seconds of each fit including initial fit evaluation and optimizer overhead, excluding source loading, JIT compilation and prior inference.",
+  "archived_initializers": "Domain- and current-specific archived predicted coefficient vectors, with archived TTT where indicated. No new training or TTT.",
+  "stopping": "First target, budget, wall cap, or optimizer convergence; seed is material ID (CMA random seed ID+1).",
+  "optimizers": "Adaptive bounded Nelder-Mead; bounded CMA-ES sigma=0.25; skopt GP expected improvement with 16 random points after the seed.",
+  "observation_bounds": "Each material/domain/current case uses the min and max valid fine-grid observed concentrations for its property-error interval."
+}

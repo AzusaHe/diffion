@@ -1,0 +1,13 @@
+{
+  "train_s": 689.5397707999218,
+  "test_s": 1.1196606000885367,
+  "n_train": 1402,
+  "n_test": 389,
+  "setup_s": 1.8089136000489816,
+  "description": "Native set CNN, 50 fixed epochs of AdamW, effective batch 64, 3 fixed current(s) per material, 48 change-aware keyframes, 1,160 cells.",
+  "epochs": 50,
+  "microbatch": 16,
+  "device": "NVIDIA GeForce RTX 4090",
+  "pytorch": "2.1.0",
+  "parameters": 361840
+}

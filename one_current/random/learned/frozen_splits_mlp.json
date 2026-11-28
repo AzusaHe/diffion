@@ -1,0 +1,104 @@
+{
+  "scoring_support": "observed window of each material at its one assigned current",
+  "inference": "frozen supervised checkpoints before TTT",
+  "splits": {
+    "id_test": {
+      "n": 1207,
+      "results": {
+        "mlp": {
+          "seeds": [
+            {
+              "seed": 0,
+              "median": {
+                "D_relL2_pct": 6.098632407402909,
+                "tplus_rmse": 0.043077609787657165,
+                "group_rmse": 0.07069172550329109,
+                "mse_lnD": 0.0040433513318199115,
+                "mse_tplus": 0.0018556804650176563
+              },
+              "reproduction_max_abs_first300": 5.364418029785156e-07
+            },
+            {
+              "seed": 1,
+              "median": {
+                "D_relL2_pct": 6.086696206703966,
+                "tplus_rmse": 0.045114924958607486,
+                "group_rmse": 0.07237952414913552,
+                "mse_lnD": 0.003963213369319499,
+                "mse_tplus": 0.002035356454020785
+              },
+              "reproduction_max_abs_first300": 4.172325134277344e-07
+            },
+            {
+              "seed": 2,
+              "median": {
+                "D_relL2_pct": 5.903706073798663,
+                "tplus_rmse": 0.04504088066756546,
+                "group_rmse": 0.0791894824605105,
+                "mse_lnD": 0.0037342265033232557,
+                "mse_tplus": 0.0020286809313098723
+              },
+              "reproduction_max_abs_first300": 3.5762786865234375e-07
+            }
+          ],
+          "mean_of_seed_medians": {
+            "D_relL2_pct": 6.0296782293018465,
+            "tplus_rmse": 0.0444111384712767,
+            "group_rmse": 0.07408691070431238,
+            "mse_lnD": 0.003913597068154222,
+            "mse_tplus": 0.001973239283449438
+          }
+        }
+      }
+    },
+    "ood_params": {
+      "n": 2859,
+      "results": {
+        "mlp": {
+          "seeds": [
+            {
+              "seed": 0,
+              "median": {
+                "D_relL2_pct": 7.1514880750188565,
+                "tplus_rmse": 0.06398136304825067,
+                "group_rmse": 0.11512623808261037,
+                "mse_lnD": 0.005207504642687914,
+                "mse_tplus": 0.004093614817512055
+              },
+              "reproduction_max_abs_first300": null
+            },
+            {
+              "seed": 1,
+              "median": {
+                "D_relL2_pct": 7.452539761826145,
+                "tplus_rmse": 0.07091028571061277,
+                "group_rmse": 0.12086838642676437,
+                "mse_lnD": 0.005647833958163834,
+                "mse_tplus": 0.005028268619560733
+              },
+              "reproduction_max_abs_first300": null
+            },
+            {
+              "seed": 2,
+              "median": {
+                "D_relL2_pct": 8.19619259308142,
+                "tplus_rmse": 0.06773829604516945,
+                "group_rmse": 0.13045550330034691,
+                "mse_lnD": 0.00706689351376393,
+                "mse_tplus": 0.004588476751103019
+              },
+              "reproduction_max_abs_first300": null
+            }
+          ],
+          "mean_of_seed_medians": {
+            "D_relL2_pct": 7.600073476642141,
+            "tplus_rmse": 0.06754331493467763,
+            "group_rmse": 0.12215004260324054,
+            "mse_lnD": 0.005974077371538561,
+            "mse_tplus": 0.004570120062725269
+          }
+        }
+      }
+    }
+  }
+}

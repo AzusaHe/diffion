@@ -1,0 +1,16 @@
+{
+  "clean": {
+    "n": 389,
+    "n_triplets": 18934,
+    "D_normalized_rmse": 0.08458086542033766,
+    "t_normalized_rmse": 0.11264700949264571,
+    "combined_normalized_rmse": 0.09960740821567811
+  },
+  "xray_noisy": {
+    "n": 389,
+    "n_triplets": 18934,
+    "D_normalized_rmse": 0.08496266308588521,
+    "t_normalized_rmse": 0.11633955489967636,
+    "combined_normalized_rmse": 0.10186644725546398
+  }
+}
