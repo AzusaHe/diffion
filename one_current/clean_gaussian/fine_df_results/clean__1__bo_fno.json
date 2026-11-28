@@ -1,0 +1,14 @@
+{
+  "n_test": 300,
+  "n_train": 0,
+  "train_s": 0.0,
+  "test_s": 1272.8667389993789,
+  "median_fit_s": 4.255818600009661,
+  "median_evals": 35.0,
+  "budget_evals": 35,
+  "median_c_rmse": 0.0068111554695039055,
+  "statuses": {
+    "reached_target": 1,
+    "used_budget": 299
+  }
+}

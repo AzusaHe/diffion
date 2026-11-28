@@ -9,9 +9,11 @@ import numpy as np
 if __package__:
     from .derivative_report import PAIRED, build_comparison
     from .equal_budget_report import build_equal_budget
+    from .fine_df_report import build_fine_df
 else:
     from derivative_report import PAIRED, build_comparison
     from equal_budget_report import build_equal_budget
+    from fine_df_report import build_fine_df
 
 HERE = Path(__file__).resolve().parent
 DOMAINS = ("clean", "gaussian_noisy")
@@ -55,6 +57,31 @@ def errors(estimate,truth,lo,hi):
 
 
 def read(path): return json.loads(path.read_text(encoding="utf-8"))
+
+def write_report(payload, destination):
+    html=(HERE/"report_template.html").read_text(encoding="utf-8")
+    for token, source in (("__DERIVATIVE_VIEW__", "derivative_view.js"),
+                          ("__FINE_DF_VIEW__", "fine_df_view.js")):
+        html=html.replace(token,(HERE/source).read_text(encoding="utf-8"))
+    data=json.dumps(payload,allow_nan=False,ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
+    temp=destination.with_suffix(".building.html")
+    temp.write_text(html.replace("__BENCHMARK_DATA__",data),encoding="utf-8")
+    temp.replace(destination)
+
+
+def refresh_fine(preview):
+    """Update the derivative-free study while retaining the published historical payload."""
+    source = HERE / "Clean_Gaussian_Benchmark.html"
+    html = source.read_text(encoding="utf-8")
+    marker = '<script id="benchmark" type="application/json">'
+    payload = json.loads(html.split(marker, 1)[1].split("</script>", 1)[0])
+    payload["fine_df"] = build_fine_df(HERE, payload["materials"], payload["runs"], errors, payload["equal_budget"], preview)
+    conditions = (payload["fine_df"] or {}).get("conditions", [])
+    if not preview and len(conditions) != 60:
+        raise ValueError(f"Expected all 60 fine-grid conditions, found {len(conditions)}")
+    destination = HERE / "cache/report_preview.html" if preview else source
+    write_report(payload, destination)
+    print(destination, len(conditions), "fine-grid conditions")
 
 def format_schedule(metadata):
     text=metadata["description"]
@@ -154,17 +181,15 @@ def main(preview=False):
                  preparation=summary,cnn_prep=costs,seeds=seeds)
     payload["derivatives"] = build_comparison(HERE, materials, bank, errors, label, preview)
     payload["equal_budget"] = build_equal_budget(HERE, materials, bank, BASE+SOLVER, PILOT, PAIRED, errors, label, preview)
+    payload["fine_df"] = build_fine_df(HERE, materials, bank, errors, payload["equal_budget"], preview)
     payload["architectures"] = [
         model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
         for model in read(HERE/filename)
     ]
     diag=HERE/"learn_residual_diagnostic.json"
     if diag.exists(): payload["residuals"]=read(diag)
-    html=(HERE/"report_template.html").read_text(encoding="utf-8")
-    data=json.dumps(payload,allow_nan=False,ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     report=HERE/("cache/report_preview.html" if preview else "Clean_Gaussian_Benchmark.html")
-    derivative_view = (HERE / "derivative_view.js").read_text(encoding="utf-8")
-    report.write_text(html.replace("__DERIVATIVE_VIEW__", derivative_view).replace("__BENCHMARK_DATA__",data),encoding="utf-8")
+    write_report(payload,report)
     if not preview:
         with (HERE/"accuracy_cost.csv").open("w",encoding="utf-8",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=list(summaries[0]));writer.writeheader();writer.writerows(summaries)
@@ -173,4 +198,6 @@ def main(preview=False):
 
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("--preview",action="store_true")
-    main(p.parse_args().preview)
+    p.add_argument("--fine-only", action="store_true", help="Refresh 290-bin fits using the existing HTML for all other studies.")
+    args=p.parse_args()
+    (refresh_fine if args.fine_only else main)(args.preview)

@@ -55,3 +55,19 @@ python "$bench/report.py"
 ```
 
 `derivative_controls` and `derivative_results` contain the matched predictions and timings. `derivative_accuracy_cost.csv` gives one row per condition. The HTML tab also exports individual material pairs, including observed concentration bounds, property errors, fitted value errors, and spatial slope RMSEs. The fixed-field diagnostic uses fresh residual points to score fitted and true properties on exactly the same learned fields.
+
+## Derivative-free refinement on 290 spatial bins
+
+The fine-grid experiment uses the first 300 held-out materials from the original solver cohort. Each material contributes paired clean and Gaussian-noisy observations at one selected current and at the triplet containing that same current. The observed field averages consecutive groups of four of the 1,160 native spatial cells. Each current contributes all valid recorded frames, up to 151. Runs that ended early contribute only their recorded interval. The forward model advances 580 finite-volume cells and averages pairs of cells to compare with each observation.
+
+Each optimizer runs from five starts. FNO, MLP, FNO + TTT and MLP + TTT supply archived eight-coefficient predictions made from the original 20 × 13 inputs for that domain and current count. The uninitialized baseline sets all eight coefficients to 0.5. All three optimizers include the initial objective evaluation in the budget and may return that start. Bounded Nelder–Mead and CMA-ES have 500 evaluations each. Bayesian optimization has 35 evaluations including the start and 16 subsequent random points. The common concentration RMSE target is 0.0001 and the time limit is 300 seconds per fit.
+
+The report scores the before- and after-refinement curves on the observed interval for the same material, domain and current count, intersected with the model's concentration domain [0, 2]. The fine-grid refinement time is measured in worker wall seconds. The report lists the original initializer cost separately. A fit can improve its concentration residual and still increase the error in one of the recovered transport properties.
+
+Run from the repository root with the paired source data and archived starting predictions in place. If the original split index is missing, run `python one_current/clean_gaussian/prepare.py` to rebuild it from the paired sources. The runner prepares the 290-bin data and resumes individual fits from local checkpoints. Its 60 result files in `fine_df_results` each cover 300 materials. The accompanying JSON files record fit costs and stopping reasons.
+
+```powershell
+python -m one_current.clean_gaussian.fine_df_run --workers 18
+python -m one_current.clean_gaussian.fine_df_validate
+python one_current/clean_gaussian/report.py --fine-only
+```

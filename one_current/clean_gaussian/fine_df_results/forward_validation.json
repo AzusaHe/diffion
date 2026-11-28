@@ -1,0 +1,69 @@
+{
+  "n_materials": 300,
+  "units": "Dimensionless concentration",
+  "description": "RMSE of the 580-cell real forward model evaluated at the generating coefficients. Each material contributes one value per condition. The paired observation noise uses differences between the 290-bin Gaussian and clean measurements.",
+  "cases": [
+    {
+      "domain": "clean",
+      "currents": 1,
+      "median": 3.9162099902609e-05,
+      "p95": 0.00023082341286748568,
+      "p99": 0.00038628448849180314,
+      "min": 6.089646114876408e-07,
+      "max": 0.0005957827000643312,
+      "at_or_below_target_1e_4": 219
+    },
+    {
+      "domain": "clean",
+      "currents": 3,
+      "median": 4.303022806152687e-05,
+      "p95": 0.00014156576080794525,
+      "p99": 0.00021106160178273076,
+      "min": 5.9408578356076155e-06,
+      "max": 0.0003142022698703636,
+      "at_or_below_target_1e_4": 267
+    },
+    {
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "median": 0.000377571896014305,
+      "p95": 0.00043321041822044163,
+      "p99": 0.0005317055698842907,
+      "min": 0.00036470891275697975,
+      "max": 0.0007028441588313816,
+      "at_or_below_target_1e_4": 0
+    },
+    {
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "median": 0.0003758484245309165,
+      "p95": 0.0003985381675075999,
+      "p99": 0.00042831983677263705,
+      "min": 0.00036559549350756335,
+      "max": 0.00048808037735959453,
+      "at_or_below_target_1e_4": 0
+    }
+  ],
+  "paired_observation_noise": [
+    {
+      "currents": 1,
+      "pooled_rmse": 0.0003732490503927594,
+      "median": 0.0003725376200032426,
+      "p95": 0.00038208419782829263,
+      "p99": 0.00038885353463687344,
+      "min": 0.0003605583017916816,
+      "max": 0.00039743630237302954,
+      "at_or_below_target_1e_4": 0
+    },
+    {
+      "currents": 3,
+      "pooled_rmse": 0.00037314870143873453,
+      "median": 0.0003724165802554964,
+      "p95": 0.00037915024135858186,
+      "p99": 0.00038279297282753323,
+      "min": 0.00036542582412832814,
+      "max": 0.00039245879719954947,
+      "at_or_below_target_1e_4": 0
+    }
+  ]
+}

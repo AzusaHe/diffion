@@ -14,19 +14,21 @@
 </style></head><body><header><div><small>DiffIon / Electrolyte transport</small><h1>Recovering transport properties from concentration profiles</h1>
 <p>One random current versus three paired currents, using clean simulations and their Gaussian-noisy counterparts. Each fit is scored on the concentration interval its own input covers.</p></div></header>
 <main><div class="numbers"><div><b>1,402</b><span>training materials</span></div><div><b>156</b><span>validation materials</span></div><div><b>389</b><span>held-out materials</span></div><div><b>1,000</b><span>updates per material for each PINN on Accuracy</span></div></div>
-<nav class="tabs" aria-label="Report views"><button data-tab="accuracy">Accuracy</button><button data-tab="derivatives">Derivative loss</button><button data-tab="noise">Effect of noise</button><button data-tab="cost">Compute cost</button><button data-tab="trade">Accuracy vs. cost</button><button data-tab="architecture">NN architecture</button><button data-tab="cases">Individual materials</button><button data-tab="seeds">Training seeds</button><button data-tab="protocol">Data and schedules</button></nav>
+<nav class="tabs" aria-label="Report views"><button data-tab="accuracy">Accuracy</button><button data-tab="fine-grid">290 × 151 refinement</button><button data-tab="derivatives">Derivative loss</button><button data-tab="noise">Effect of noise</button><button data-tab="cost">Compute cost</button><button data-tab="trade">Accuracy vs. cost</button><button data-tab="architecture">NN architecture</button><button data-tab="cases">Individual materials</button><button data-tab="seeds">Training seeds</button><button data-tab="protocol">Data and schedules</button></nav>
 <div class="controls"><label>Observation domain<select id="domain"><option value="clean">Clean</option><option value="gaussian_noisy">Gaussian noise</option></select></label>
 <label id="famLabel">Method family<select id="family"><option value="">All methods</option><option>Supervised and TTT</option><option>Numerical optimization</option><option>PINN refinement</option></select></label>
 <label id="coLabel">Evaluation cohort<select id="cohort"><option value="all">All tested by each method</option><option value="300">Matched first 300 test materials</option><option value="30">Matched first 30 test materials</option><option value="8">Matched first 8 test materials</option><option value="6">Matched 6 eligible for all PINNs</option><option value="1">Material 000002 only</option></select></label>
 <label id="metLabel" hidden>Method<select id="method"></select></label><label id="idLabel" hidden>Material ID<select id="mat"></select></label><label id="propertyLabel" hidden>Property error<select id="property"><option value="1">D relative L₂ (%)</option><option value="2">t₊ RMSE</option></select></label>
 <label id="gradCountLabel" hidden>Current densities per material<select id="gradCount"><option value="1">One current</option><option value="3">Three currents</option></select></label>
 <label id="gradStartLabel" hidden>Material initialization<select id="gradStart"><option value="fno_ttt">FNO + TTT</option><option value="center">Center</option></select></label>
+<label id="fineCountLabel" hidden>Currents in detailed tables<select id="fineCount"><option value="1">One current</option><option value="3">Three currents</option></select></label>
 </div><div id="content"></div><noscript>Enable JavaScript to inspect the embedded results in this offline HTML report.</noscript></main>
 <script id="benchmark" type="application/json">__BENCHMARK_DATA__</script><script>
 "use strict";
 const DB=JSON.parse(document.querySelector("#benchmark").textContent), byId=x=>document.getElementById(x);
 const {runs,materials,order,names}=DB, materialMap=Object.fromEntries(materials.map(m=>[m.id,m]));
 const groupNames=["Supervised and TTT","Numerical optimization","PINN refinement"], dom=()=>byId("domain").value;
+document.querySelector('[data-tab="fine-grid"]').hidden=!DB.fine_df;
 const views=new Set(Array.from(document.querySelectorAll(".tabs button"),button=>button.dataset.tab));
 function requestedView(){const view=location.hash.slice(1);return views.has(view)?view:"accuracy";}
 let tab=requestedView();
@@ -36,6 +38,7 @@ const ms=s=>s==null?"—":s<.001?num(s*1e6,2)+" µs":s<1?num(s*1000,2)+" ms":s<6
 const sec=s=>s?ms(s):"—", median=a=>{if(!a.length)return null;let b=[...a].sort((x,y)=>x-y),n=b.length;return (b[(n-1)>>1]+b[n>>1])/2;};
 const run=(s,c)=>runs[dom()+"__"+c+"__"+s], title=t=>'<h2>'+t+'</h2>', wrap=t=>'<div class="scroll"><table>'+t+'</table></div>';
 __DERIVATIVE_VIEW__
+__FINE_DF_VIEW__
 function groupTable(head,fn,nCol,methods=order,findRun=run){let out=head+"<tbody>";for(const g of groupNames){if(byId("family").value&&g!==byId("family").value)continue;let body="";for(const s of methods){let a=findRun(s,1),b=findRun(s,3);if(!a||!b||a.family!==g)continue;body+=fn(s,a,b)||"";}if(body)out+='<tr class="group"><th colspan="'+nCol+'">'+g+'</th></tr>'+body;}return wrap(out+"</tbody>");}
 function observations(r){
     const cohort=byId("cohort").value;
@@ -122,13 +125,15 @@ function equalCaseSelector() {
     return '<details><summary>Inspect equal-budget PINN results by material</summary><div class="controls"><label>PINN and observed derivative loss<select id="equalMethod">'+options+'</select></label></div><div id="equalCases"></div></details>';
 }
 function downloadEqualBudget(){
-    const blob=new Blob([DB.equal_budget.csv],{type:"text/csv;charset=utf-8"});
+    const blob=new Blob([DB.equal_budget.csv,DB.fine_df?.accuracy_csv_append||""],{type:"text/csv;charset=utf-8"});
     const url=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=url;a.download="equal_budget_accuracy_cost.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+    a.href=url;a.download="all_accuracy_cost.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
 }
 function showAccuracy(){
 let h=title("Observed-range accuracy")+'<p class="sub">Median across held-out materials. Lower values indicate closer recovery. D error is relative L₂ in percent. The transference number t₊ is dimensionless.</p>';
 const family=byId("family").value;
+const includeFine=DB.fine_df && fineRows().length && (!family||family===groupNames[1]);
+if(includeFine) h+='<p><a href="#fine-grid">290 × 151 derivative-free refinement</a> compares five starting estimates on the same 300 materials. Its observed-range accuracy appears below.</p>';
 if(!family||family==="PINN refinement"){
     h+='<p><b>Every PINN uses 1,000 optimizer updates per material.</b> This includes field prefit, physics warmup, joint or frozen-field fitting, and correction when present. FNO + TTT starts spend 150 updates on test-time training and 850 on the PINN. The PINN comparison uses Adam or AdamW throughout, with zero L-BFGS iterations. Shared supervised pretraining is accounted for separately.</p>';
     h+='<p>Binned PINNs fit eight held-out materials. The CNN-initialized PINN fits six. Materials 000037 and 000045 have no steady nonzero-current profile among the selected currents, which its steady-state loss requires. Select <b>Matched 6 eligible for all PINNs</b> to compare every method on materials 000002, 000003, 000011, 000021, 000022 and 000032.</p>';
@@ -141,6 +146,7 @@ let solver=run("lbfgs_center",1),s3=run("lbfgs_center",3);
 if(solver&&s3&&f&&(!byId("family").value||byId("family").value===groupNames[1])){
  const rr=observations(solver),rt=observations(s3);if(rr.length){const x=metrics(rr),y=metrics(rt),fr=metrics(f.observations.slice(0,rr.length));
  h+='<p>On the same '+rr.length+' materials, the one-current FNO has median D error '+num(fr[0],2)+'%. A center-started L-BFGS-B fit gives <b>'+num(x[0],2)+'%</b> in '+ms(solver.per_s)+' per material on average. With three currents, L-BFGS-B gives <b>'+num(y[0],2)+'%</b> in '+ms(s3.per_s)+'.</p>';}}
+if(includeFine) h+=fineAccuracy()+'<h3>Earlier grids and PINN comparison</h3>';
 h+=accuracyTable();
 h+='<p class="fineprint">Time/material is the mean elapsed cost over the full timed cohort, including initialization, prefit, forward solves and correction as applicable. FNO + TTT reuses the seed-0 estimates and their measured mean initialization time. Shared supervised training times are in the CSV. Batched throughput, grid size, current count, device and concurrent jobs affect these measurements. The CNN-initialized PINN reports how many selected materials passed its checkpoint gate. Its summary includes terminal diagnostic estimates for any rejected material.</p>';
 if(!family||family==="PINN refinement")h+=equalSlopeSummary()+equalBudgetDetails()+equalCaseSelector();
@@ -226,8 +232,18 @@ if(DB.residuals){const d=DB.residuals[dom()+"__1__fno"];h=h.replace('<h3>Run det
 for(const s of order){let a=run(s,1),b=run(s,3);if(!a||!b)continue;h+='<details><summary>'+esc(a.name)+'</summary>';for(const r of [a,b]){let m=r.meta;h+='<p><b>'+r.count+(r.count===1?" current":" currents")+'</b> · '+r.n+' test material'+(r.n===1?"":"s")+' · '+esc(m.device)+'<br>'+esc(m.description)+'</p><p class="fineprint">Final-stage test time '+ms(m.test_s)+'. '+(m.ttt_lr?"TTT learning rate "+m.ttt_lr+". ":"")+(m.median_evals?"Median objective evaluations "+m.median_evals+". ":"")+(m.gate_status?"Checkpoint "+esc(m.gate_status)+" ("+esc(m.checkpoint)+"). ":"")+(m.timing?esc(m.timing):"")+(m.statuses?" Solver stop counts · "+Object.entries(m.statuses).map(([s,n])=>esc(s)+" ("+n+")").join(", ")+". ":"")+(m.median_c_rmse?" Median concentration RMSE "+num(m.median_c_rmse,6)+".":"")+'</p>';}h+='</details>';}return h;}
 function refreshMaterials(){let select=byId("mat"),prev=select.value,a=run(byId("method").value,1);select.innerHTML=(a?.observations||[]).map(v=>'<option value="'+v[0]+'">'+String(v[0]).padStart(6,"0")+'</option>').join("");if(Array.from(select.options).some(o=>o.value===prev))select.value=prev;}
 function render(){document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.tab===tab)));byId("domain").parentElement.hidden=["noise","architecture"].includes(tab);byId("famLabel").hidden=!["cost","accuracy","noise","trade"].includes(tab);byId("coLabel").hidden=!["accuracy","noise","trade"].includes(tab);byId("metLabel").hidden=byId("idLabel").hidden=tab!=="cases";byId("propertyLabel").hidden=tab!=="trade";byId("gradCountLabel").hidden=byId("gradStartLabel").hidden=tab!=="derivatives";
-    const earlier=["accuracy","seeds"].includes(tab)?"":'<p class="summary"><b>Original PINN schedules.</b> The PINN results or optimizer schedules in this view come from the earlier variable-budget runs. The <a href="#accuracy">Accuracy tab</a> shows the 1,000-update runs, their timings and stage allocations.</p>';
-    byId("content").innerHTML='<section class="panel">'+earlier+({accuracy:showAccuracy,derivatives:showDerivatives,noise:showNoise,cost:showCost,trade:showTrade,cases:showCases,seeds:showSeeds,protocol:showProtocol,architecture:showArchitectures}[tab]())+'</section>';
+    byId("fineCountLabel").hidden=tab!=="fine-grid";
+    const earlier=["accuracy","seeds","fine-grid"].includes(tab)?"":'<p class="summary"><b>Original PINN schedules.</b> The PINN results or optimizer schedules in this view come from the earlier variable-budget runs. The <a href="#accuracy">Accuracy tab</a> shows the 1,000-update runs, their timings and stage allocations.</p>';
+    byId("content").innerHTML='<section class="panel">'+earlier+({accuracy:showAccuracy,"fine-grid":showFineGrid,derivatives:showDerivatives,noise:showNoise,cost:showCost,trade:showTrade,cases:showCases,seeds:showSeeds,protocol:showProtocol,architecture:showArchitectures}[tab]())+'</section>';
+    if(tab==="fine-grid" && byId("fineMaterial")){
+        const draw=()=>{byId("fineDetails").innerHTML=fineDetail();};
+        byId("finePlotProperty").value=finePlotProperty;
+        byId("finePlotProperty").onchange=e=>{finePlotProperty=e.target.value;byId("finePlot").innerHTML=finePlot();};
+        byId("finePlot").innerHTML=finePlot();
+        byId("fineMaterial").value=String(fineMaterialIndex);
+        byId("fineMaterial").onchange=e=>{fineMaterialIndex=Number(e.target.value);draw();};
+        draw();
+    }
     if(tab==="accuracy"&&byId("equalMethod")){byId("equalMethod").onchange=equalBudgetCases;equalBudgetCases();}
     if(tab==="derivatives" && byId("derivativeMethod")) byId("derivativeMethod").onchange=()=>{gradientSelected=byId("derivativeMethod").value;byId("gradientCases").innerHTML=derivativeCases(gradientRows().find(r=>r.method===gradientSelected));};
     if(tab==="architecture") byId("archMethod").onchange=e=>{
