@@ -1,0 +1,51 @@
+{
+  "material_ids": [
+    2,
+    3,
+    11,
+    21,
+    22,
+    32,
+    37,
+    45
+  ],
+  "spatial_bins": 290,
+  "max_time_frames": 151,
+  "gauss_points_per_bin": 2,
+  "residual_points_per_current": 64,
+  "materials_per_batch": 1,
+  "dtype": "float32",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "torch": "2.11.0+cu130",
+  "cuda": "13.0",
+  "starts": [
+    "center",
+    "fno_ttt"
+  ],
+  "methods": [
+    "standard",
+    "correction_w1",
+    "correction_w100"
+  ],
+  "start_source": "Archived matching 20 x 13 seed-0 FNO + 150 TTT, or all material coefficients 0.5. The 400 new updates exclude archived TTT.",
+  "concentration": "Average of four raw spatial cells, all valid native time points retained; end padding omitted per material.",
+  "velocity": "Reconstructed independently from the observed concentration and time for each current and noise domain using the benchmark conservation equations.",
+  "metrics": "Absolute dimensionless c and v RMSE over all finite observations across currents, bins and times. c uses two quadrature nodes per bin; v is at bin centers.",
+  "standard": "400 continuous joint Adam updates, including c and v data. Data weight 1, salt, volume and wall weight 100 each.",
+  "shared_base": "189 data-only field-prefit updates (theta fixed), then 111 joint updates with data weight 0.01 and physics weights 1.",
+  "correction": "100 updates to additive c/v networks and theta, frozen base fields and scales. Combined c/v data weight 1 or 100, physics weights 1.",
+  "timing": "Measured GPU-synchronized elapsed wall time per material, batch size one. Each correction pipeline includes the shared stage-1 time and correction initialization; count these once per material when summing actual study cost.",
+  "checkpoint_steps": [
+    0,
+    300,
+    400
+  ],
+  "spatial_slope_weight": 0.0,
+  "field_widths": [
+    3,
+    32,
+    32,
+    32,
+    1
+  ]
+}

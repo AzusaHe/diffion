@@ -4,6 +4,7 @@
 !/cache/cnn_gaussian_noisy_prep.json
 !/cache/physics_validation.json
 /learned_checkpoints/
+/fine_cv*_results/checkpoints/
 /learned_seeds/
 /*.log
 /results/*_first8.npz

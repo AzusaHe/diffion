@@ -1,0 +1,14 @@
+{
+  "last_material": 1528,
+  "last_domain": "gaussian_noisy",
+  "last_currents": 3,
+  "last_start": "fno_ttt",
+  "complete_materials": 300,
+  "completed_contexts": 2400,
+  "total_contexts": 2400,
+  "outcomes": 7200,
+  "copied_pilot_contexts": 64,
+  "trained_contexts_this_invocation": 2187,
+  "wall_seconds_this_invocation": 11074.109088000027,
+  "estimated_seconds_remaining": 0.0
+}

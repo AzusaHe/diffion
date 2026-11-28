@@ -1,0 +1,117 @@
+{
+  "materials": 300,
+  "contexts": 2400,
+  "pipelines": 7200,
+  "endpoint_records": 14400,
+  "max_c_rmse_abs": 6.364748794673858e-08,
+  "max_v_rmse_abs": 9.812484602633731e-08,
+  "field_evaluations_at_updates": [
+    0,
+    375,
+    500
+  ],
+  "common_material_start_contexts_verified": 2400,
+  "reused_eight_checkpoint_files_byte_verified": 64,
+  "min_observed_frames_per_current": 3,
+  "max_observed_frames_per_current": 151,
+  "validation": "Independent CPU dense-network evaluation of every trained material, input, start and method at its initial, intermediate and final checkpoints. Each concentration target averages four adjacent native cells. Its predicted bin mean uses two Gauss-Legendre nodes. Independent reconstruction of the velocity targets uses measured concentration, recorded times and the conservation equations. The checks matched exported coefficient arrays and field RMSE values to the saved field checkpoints.",
+  "phase_checks": "Both correction loss weights start with identical initialized correction networks and material logits at the common 375-update base. Source field networks and calibration scalars/vectors remain frozen through the 125 correction updates. Both residual networks and material logits change in both arms.",
+  "scored_archives": [
+    {
+      "path": "clean__1__correction_w100_center.npz",
+      "sha256": "6c455f86a6a20bb8f72227bcfbae8062e9baad36925221ab8932afbbdf44448b"
+    },
+    {
+      "path": "clean__1__correction_w100_fno_ttt.npz",
+      "sha256": "1dadd284296cf7bf9de7027db604acbf7c1b57616f16b40c15b81a3ac8f3d358"
+    },
+    {
+      "path": "clean__1__correction_w1_center.npz",
+      "sha256": "4181724151f9035a6a7ecc54a57d6e6023a446324601daa026cfcae951bb770d"
+    },
+    {
+      "path": "clean__1__correction_w1_fno_ttt.npz",
+      "sha256": "dc41a6965d8d3fbbdcaa2ba68a7336e3f98e041087bcc5654e0ef82956cb54ec"
+    },
+    {
+      "path": "clean__1__standard_center.npz",
+      "sha256": "488e6c682ae9e541111804834ffbe149a45ed8d815a5174cb7f0d570ff7cabfd"
+    },
+    {
+      "path": "clean__1__standard_fno_ttt.npz",
+      "sha256": "14a24ab7c9ad788764cff8c7bb35876bda7c95e3a1799d5aaf9c87e01236224b"
+    },
+    {
+      "path": "clean__3__correction_w100_center.npz",
+      "sha256": "21cae0691a3d3c53c126963058b60adfbb930596d6a9e2970a215c3cb9d4d8e9"
+    },
+    {
+      "path": "clean__3__correction_w100_fno_ttt.npz",
+      "sha256": "e406401b07f8f3a167d5b02be9ca6b34c6063fac0bb1724f531b0b682999ee2a"
+    },
+    {
+      "path": "clean__3__correction_w1_center.npz",
+      "sha256": "1d30c984f7daca491ba583f41b5300ddeff873cbbf396c0464c73d0aebdb0b25"
+    },
+    {
+      "path": "clean__3__correction_w1_fno_ttt.npz",
+      "sha256": "ed47ba69c8773fd650ac2049368eb85f64d8c0efb50684411694ac31b27715f0"
+    },
+    {
+      "path": "clean__3__standard_center.npz",
+      "sha256": "5c39154340f97da9739a2de0514108fdb563b549a4a27da151a08a426e2ede60"
+    },
+    {
+      "path": "clean__3__standard_fno_ttt.npz",
+      "sha256": "f7f7ea1c112761dbcb089d1988443698fb136294c27bd79685384203205264a0"
+    },
+    {
+      "path": "gaussian_noisy__1__correction_w100_center.npz",
+      "sha256": "b3aa162211289e1012828d4ceaaecc7d8e482fc102efe4033a184e22472c09ee"
+    },
+    {
+      "path": "gaussian_noisy__1__correction_w100_fno_ttt.npz",
+      "sha256": "36d7891d20e93c7b66efe8960d8b347e9f3da970a487bd6235a71880bb714486"
+    },
+    {
+      "path": "gaussian_noisy__1__correction_w1_center.npz",
+      "sha256": "56840b2bdb8a2b2b79545b9b1d1b67f7ba497fa2c59744dfda30faf9cd1f364c"
+    },
+    {
+      "path": "gaussian_noisy__1__correction_w1_fno_ttt.npz",
+      "sha256": "7e909e1be2610d1c103964dd5c08e8f3ded6b476ce85f247a5cb1e7d1364024d"
+    },
+    {
+      "path": "gaussian_noisy__1__standard_center.npz",
+      "sha256": "75857e67adeb96bcc94b8f46f59584052289d59be5544a083717b283c077c51c"
+    },
+    {
+      "path": "gaussian_noisy__1__standard_fno_ttt.npz",
+      "sha256": "fa0d0792c67ac4c2961b381bdf8de0de6a0588752cee5389d01d1b8d499f293c"
+    },
+    {
+      "path": "gaussian_noisy__3__correction_w100_center.npz",
+      "sha256": "038cbeea6fbbc738c9c44e8666e6398fd978844b1e85991066babb8e05e34dbc"
+    },
+    {
+      "path": "gaussian_noisy__3__correction_w100_fno_ttt.npz",
+      "sha256": "8b748b95ca9cece8027bc235eccd707e576d038d58952ae32bcfd75d6031d269"
+    },
+    {
+      "path": "gaussian_noisy__3__correction_w1_center.npz",
+      "sha256": "9ec85ba17fda5b4964d8f807d908b29e5160b72e3c4981fc6d68c082805cd8c6"
+    },
+    {
+      "path": "gaussian_noisy__3__correction_w1_fno_ttt.npz",
+      "sha256": "d4af930e9dbc4d555b9fbee5da4fe10dbc1d68c53f0671bb654b0a364690dce5"
+    },
+    {
+      "path": "gaussian_noisy__3__standard_center.npz",
+      "sha256": "e4e2ae2456defbb0b9b25b85d7e9429518ab63c020df23f52c270d6df216a358"
+    },
+    {
+      "path": "gaussian_noisy__3__standard_fno_ttt.npz",
+      "sha256": "7c540b44e0986ff52236d55dd82fde4f68fea5f91ffa468fda8ad48e28377a2b"
+    }
+  ]
+}

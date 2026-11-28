@@ -10,10 +10,18 @@ if __package__:
     from .derivative_report import PAIRED, build_comparison
     from .equal_budget_report import build_equal_budget
     from .fine_df_report import build_fine_df
+    from .fine_cv_report import add_fine_cv_view, build_fine_cv
+    from .fine_cv_width_report import add_width_view, build_width_comparison
+    from .fine_cv_budget_report import add_budget_view, build_budget_comparison
+    from .fine_cv_cohort_report import add_cohort_view, build_cohort_report
 else:
     from derivative_report import PAIRED, build_comparison
     from equal_budget_report import build_equal_budget
     from fine_df_report import build_fine_df
+    from fine_cv_report import add_fine_cv_view, build_fine_cv
+    from fine_cv_width_report import add_width_view, build_width_comparison
+    from fine_cv_budget_report import add_budget_view, build_budget_comparison
+    from fine_cv_cohort_report import add_cohort_view, build_cohort_report
 
 HERE = Path(__file__).resolve().parent
 DOMAINS = ("clean", "gaussian_noisy")
@@ -58,11 +66,20 @@ def errors(estimate,truth,lo,hi):
 
 def read(path): return json.loads(path.read_text(encoding="utf-8"))
 
-def write_report(payload, destination):
-    html=(HERE/"report_template.html").read_text(encoding="utf-8")
-    for token, source in (("__DERIVATIVE_VIEW__", "derivative_view.js"),
-                          ("__FINE_DF_VIEW__", "fine_df_view.js")):
-        html=html.replace(token,(HERE/source).read_text(encoding="utf-8"))
+def write_report(payload, destination, html=None):
+    if html is None:
+        html=(HERE/"report_template.html").read_text(encoding="utf-8")
+        for token, source in (("__DERIVATIVE_VIEW__", "derivative_view.js"),
+                              ("__FINE_DF_VIEW__", "fine_df_view.js")):
+            html=html.replace(token,(HERE/source).read_text(encoding="utf-8"))
+    if payload.get("fine_cv"):
+        html = add_fine_cv_view(HERE, html)
+    if payload.get("fine_cv_width"):
+        html = add_width_view(HERE, html)
+    if payload.get("fine_cv_budget"):
+        html = add_budget_view(HERE, html)
+    if payload.get("fine_cv_300"):
+        html = add_cohort_view(HERE, html)
     data=json.dumps(payload,allow_nan=False,ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     temp=destination.with_suffix(".building.html")
     temp.write_text(html.replace("__BENCHMARK_DATA__",data),encoding="utf-8")
@@ -82,6 +99,32 @@ def refresh_fine(preview):
     destination = HERE / "cache/report_preview.html" if preview else source
     write_report(payload, destination)
     print(destination, len(conditions), "fine-grid conditions")
+
+def refresh_fine_cv(preview, width_only=False, budget_only=False, cohort_only=False):
+    source = HERE / "Clean_Gaussian_Benchmark.html"
+    marker = '<script id="benchmark" type="application/json">'
+    prefix, content = source.read_text(encoding="utf-8").split(marker, 1)
+    encoded, suffix = content.split("</script>", 1)
+    payload = json.loads(encoded)
+    if cohort_only:
+        key = "fine_cv_300"
+        study = build_cohort_report(HERE, payload, errors, preview)
+    elif budget_only:
+        key = "fine_cv_budget"
+        study = build_budget_comparison(HERE, payload, errors, preview)
+    elif width_only:
+        key = "fine_cv_width"
+        study = build_width_comparison(HERE, payload, errors, preview)
+    else:
+        key = "fine_cv"
+        study = build_fine_cv(HERE, payload["materials"], payload["runs"], errors, payload["equal_budget"], preview)
+    if not study:
+        raise ValueError(f"{key} requires all 24 saved conditions.")
+    payload[key] = study
+    destination = HERE / "cache/report_preview.html" if preview else source
+    write_report(payload, destination, prefix + marker + "__BENCHMARK_DATA__</script>" + suffix)
+    print(destination, len(study["rows"]), key, "conditions")
+
 
 def format_schedule(metadata):
     text=metadata["description"]
@@ -182,6 +225,10 @@ def main(preview=False):
     payload["derivatives"] = build_comparison(HERE, materials, bank, errors, label, preview)
     payload["equal_budget"] = build_equal_budget(HERE, materials, bank, BASE+SOLVER, PILOT, PAIRED, errors, label, preview)
     payload["fine_df"] = build_fine_df(HERE, materials, bank, errors, payload["equal_budget"], preview)
+    payload["fine_cv"] = build_fine_cv(HERE, materials, bank, errors, payload["equal_budget"], preview)
+    payload["fine_cv_width"] = build_width_comparison(HERE, payload, errors, preview)
+    payload["fine_cv_budget"] = build_budget_comparison(HERE, payload, errors, preview)
+    payload["fine_cv_300"] = build_cohort_report(HERE, payload, errors, preview)
     payload["architectures"] = [
         model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
         for model in read(HERE/filename)
@@ -198,6 +245,16 @@ def main(preview=False):
 
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("--preview",action="store_true")
-    p.add_argument("--fine-only", action="store_true", help="Refresh 290-bin fits using the existing HTML for all other studies.")
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--fine-only", action="store_true", help="Refresh 290-bin derivative-free fits using the existing HTML.")
+    mode.add_argument("--fine-cv-only", action="store_true", help="Refresh the 400-update c/v PINNs using the existing HTML.")
+    mode.add_argument("--fine-cv-width-only", action="store_true", help="Refresh the c/v width comparison using the saved original study in the existing HTML.")
+    mode.add_argument("--fine-cv-budget-only", action="store_true", help="Compare saved wide c/v PINNs at 400 and 500 updates.")
+    mode.add_argument("--fine-cv-300-only", action="store_true", help="Refresh the wide 500-update PINNs on 300 held-out materials.")
     args=p.parse_args()
-    (refresh_fine if args.fine_only else main)(args.preview)
+    if args.fine_cv_only or args.fine_cv_width_only or args.fine_cv_budget_only or args.fine_cv_300_only:
+        refresh_fine_cv(args.preview, width_only=args.fine_cv_width_only, budget_only=args.fine_cv_budget_only, cohort_only=args.fine_cv_300_only)
+    elif args.fine_only:
+        refresh_fine(args.preview)
+    else:
+        main(args.preview)

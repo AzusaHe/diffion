@@ -1,0 +1,381 @@
+{
+  "description": "Validation of single-material CUDA graph reuse for the 500-update 290-bin CV PINN cohort.",
+  "reference_comparison": "Saved base fields, additive fields, scale constants, logits, reported material coefficients and both field errors were compared at every available phase checkpoint.",
+  "reference_sort_order": "standard, base, correction_w1, correction_w100, ascending local update within each stage.",
+  "reference_results": [
+    {
+      "domain": "clean",
+      "start": "center",
+      "currents": 3,
+      "material_id": 2,
+      "valid_frames": [
+        73,
+        72,
+        75
+      ],
+      "pilot_checkpoint": "../fine_cv_double_500_results/checkpoints/clean__3__center__000002.pt",
+      "pilot_file_sha256": "7bfbc983034bbd537c8b02a31a35abbfae32435dcd73c57802a4920ef97e23ae",
+      "checkpoints_with_bitwise_equal_fields_logits_and_rmse": 10,
+      "tensors_compared_bitwise": 250,
+      "paired_weight_digest_sha256": "7604de80b654034409a1d8ee16169f2932a7b5175389309fc459d99f73a5e93f"
+    },
+    {
+      "domain": "gaussian_noisy",
+      "start": "fno_ttt",
+      "currents": 3,
+      "material_id": 2,
+      "valid_frames": [
+        73,
+        72,
+        75
+      ],
+      "pilot_checkpoint": "../fine_cv_double_500_results/checkpoints/gaussian_noisy__3__fno_ttt__000002.pt",
+      "pilot_file_sha256": "bd10586bcad532ef6b849b89bd7ed1514aec2f8ab2d6f4f064303028b88833fd",
+      "checkpoints_with_bitwise_equal_fields_logits_and_rmse": 10,
+      "tensors_compared_bitwise": 250,
+      "paired_weight_digest_sha256": "2f6c2d5ff4f339509b97d65bb51b36bcb0c3f18e38281aed9fb6b468a69bea63"
+    }
+  ],
+  "timing_design": "Interleaved real study fits for materials 1275 and 1355 on one RTX 4090 while the main cohort worker shared the GPU. Each execution mode covered each domain and initialization for each current count. The two materials occupy the same padded 70-frame grid. Each count includes one cold cache build and three cache-hit contexts. All 16 contexts are retained in the 300-material results.",
+  "timing_measure": "Sum of all synchronized training stages for three outcomes per context; the shared 375-update base and preparation of its two correction networks are included once. Graph setup and RNG initialization are included in the measured training wall time.",
+  "timing_summary": [
+    {
+      "currents": 1,
+      "contexts_per_execution_mode": 4,
+      "fresh_graph_training_s": 37.63074700033758,
+      "reused_graph_training_s": 28.69240429997444,
+      "elapsed_reduction_percent": 23.752764462217435
+    },
+    {
+      "currents": 3,
+      "contexts_per_execution_mode": 4,
+      "fresh_graph_training_s": 44.17428729997482,
+      "reused_graph_training_s": 38.686741399695165,
+      "elapsed_reduction_percent": 12.422488818020572
+    },
+    {
+      "currents": "both",
+      "contexts_per_execution_mode": 8,
+      "fresh_graph_training_s": 81.8050343003124,
+      "reused_graph_training_s": 67.3791456996696,
+      "elapsed_reduction_percent": 17.634475340092493
+    }
+  ],
+  "native_observation_audit": {
+    "contexts": 16,
+    "material_method_conditions": 48,
+    "c_and_v_scored_at_updates": [
+      0,
+      375,
+      500
+    ],
+    "max_absolute_c_rmse_discrepancy": 6.4488673012785824e-09,
+    "max_absolute_v_rmse_discrepancy": 1.0308988607210523e-08
+  },
+  "timing_contexts": [
+    {
+      "mid": 1275,
+      "domain": "clean",
+      "currents": 1,
+      "start": "center",
+      "cache": false,
+      "training_s": 10.392524000140838,
+      "end_to_end_s": 10.445662199985236,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "clean",
+      "currents": 1,
+      "start": "center",
+      "cache": true,
+      "training_s": 8.777633300167508,
+      "end_to_end_s": 8.803895300021395,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 5,
+        "capture_s": 1.4295252001611516,
+        "rng_setup_s": 0.12012810015585274
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "clean",
+      "currents": 1,
+      "start": "fno_ttt",
+      "cache": true,
+      "training_s": 6.892475499887951,
+      "end_to_end_s": 6.93593180004973,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "clean",
+      "currents": 1,
+      "start": "fno_ttt",
+      "cache": false,
+      "training_s": 8.726614699931815,
+      "end_to_end_s": 8.752208100049756,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "start": "center",
+      "cache": false,
+      "training_s": 8.83111650007777,
+      "end_to_end_s": 8.85790940001607,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "start": "center",
+      "cache": true,
+      "training_s": 6.2431866999249905,
+      "end_to_end_s": 6.271681300015189,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "start": "fno_ttt",
+      "cache": true,
+      "training_s": 6.779108799993992,
+      "end_to_end_s": 6.821676199906506,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "start": "fno_ttt",
+      "cache": false,
+      "training_s": 9.680491800187156,
+      "end_to_end_s": 9.72311279992573,
+      "frames": [
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "clean",
+      "currents": 3,
+      "start": "center",
+      "cache": false,
+      "training_s": 11.113753800047562,
+      "end_to_end_s": 11.162930199992843,
+      "frames": [
+        70,
+        69,
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "clean",
+      "currents": 3,
+      "start": "center",
+      "cache": true,
+      "training_s": 11.44166139990557,
+      "end_to_end_s": 11.472824899945408,
+      "frames": [
+        70,
+        69,
+        66
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 5,
+        "capture_s": 1.814782099914737,
+        "rng_setup_s": 0.12898890022188425
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "clean",
+      "currents": 3,
+      "start": "fno_ttt",
+      "cache": true,
+      "training_s": 9.586672900011763,
+      "end_to_end_s": 9.637765699997544,
+      "frames": [
+        70,
+        69,
+        70
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "clean",
+      "currents": 3,
+      "start": "fno_ttt",
+      "cache": false,
+      "training_s": 11.544156899908558,
+      "end_to_end_s": 11.592700400040485,
+      "frames": [
+        70,
+        69,
+        66
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "start": "center",
+      "cache": false,
+      "training_s": 11.155795900034718,
+      "end_to_end_s": 11.206530400086194,
+      "frames": [
+        70,
+        69,
+        66
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "start": "center",
+      "cache": true,
+      "training_s": 8.768465199857019,
+      "end_to_end_s": 8.81663859996479,
+      "frames": [
+        70,
+        69,
+        70
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1355,
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "start": "fno_ttt",
+      "cache": true,
+      "training_s": 8.889941899920814,
+      "end_to_end_s": 8.93809049995616,
+      "frames": [
+        70,
+        69,
+        66
+      ],
+      "graph": {
+        "hits": 5,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    },
+    {
+      "mid": 1275,
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "start": "fno_ttt",
+      "cache": false,
+      "training_s": 10.360580699983984,
+      "end_to_end_s": 10.40791209996678,
+      "frames": [
+        70,
+        69,
+        70
+      ],
+      "graph": {
+        "hits": 0,
+        "misses": 0,
+        "capture_s": 0.0,
+        "rng_setup_s": 0.0
+      }
+    }
+  ]
+}

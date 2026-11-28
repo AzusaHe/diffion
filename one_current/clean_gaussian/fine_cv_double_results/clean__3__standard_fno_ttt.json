@@ -1,0 +1,31 @@
+{
+  "n_test": 8,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "dtype": "float32",
+  "batch_size": 1,
+  "method": "standard",
+  "start": "fno_ttt",
+  "stages": {
+    "joint": 400
+  },
+  "total_updates": 400,
+  "archived_ttt_updates": 150,
+  "stage1_s": 31.254952299874276,
+  "stage2_s": 8.988760399981402,
+  "test_s": 40.24371269985568,
+  "correction_setup_s": 0.0,
+  "checkpoints": "checkpoints",
+  "data_domain": "clean",
+  "currents": 3,
+  "field_widths": [
+    3,
+    44,
+    47,
+    46,
+    1
+  ],
+  "per_field_parameters": 4546,
+  "material_logits": 8,
+  "trainable_parameters": 9100,
+  "total_nn_parameters": 9092
+}

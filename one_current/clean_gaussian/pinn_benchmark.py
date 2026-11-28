@@ -64,7 +64,7 @@ def fine_inputs(ids, chosen, domain):
     return y,times
 
 
-def make_corrections(params, stats, grid, device):
+def make_corrections(params, stats, grid, device, hidden_widths=(32, 32, 32)):
     """Freeze first-stage fields and add zero-initialized, residual-scaled sine networks."""
     ls = engine.Losses("cv",DTYPE,device,obs=grid)
     corrected=[]
@@ -90,7 +90,7 @@ def make_corrections(params, stats, grid, device):
             kt=np.mean([np.sum(r[1:]*r[:-1]<0,axis=0).mean() for r in rs])
             scale["eps_"+key]=torch.tensor(eps,dtype=DTYPE)
             scale["k_"+key]=torch.tensor([np.clip(np.pi*kx/2,1,20),np.clip(np.pi*kt/2,1,20),1],dtype=DTYPE)
-            net=engine.init_mlp(gen,[3,32,32,32,1],DTYPE)
+            net=engine.init_mlp(gen,[3, *hidden_widths, 1],DTYPE)
             net[-1]=tuple(torch.zeros_like(q) for q in net[-1])
             base[key+"1"]=net
         base["ms"]=scale

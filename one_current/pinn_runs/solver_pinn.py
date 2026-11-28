@@ -414,7 +414,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 fit_steps=0, fit_lr=1e-3, warmup_steps=0, lbfgs_iters=0, lbfgs_memory=20, lbfgs_log_every=10,
                 fit_v=False, fit_lbfgs_iters=0, prefit_cache=None, freeze=(), residual="strong", hard_bc=False,
                 obs=None, init_params=None, cache_tag="", return_params=False, observation_stats=None,
-                spatial_derivative_weight=0.0, evaluate_spatial_derivatives=False):
+                spatial_derivative_weight=0.0, evaluate_spatial_derivatives=False,
+                snapshot_steps=(), snapshot_callback=None, graph_cache=None):
     """Train len(ys) independent PINNs together. Returns one result dict per fit (format of jax_pinn.train).
 
     Stages (each skipped when its count is 0; all 0 except `steps` is the total-loss training):
@@ -431,6 +432,14 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     evaluate_spatial_derivatives: return c/v_slope_rmse and c/v_slope_rel_rmse on the fitted observations.
              Enabled automatically for positive spatial_derivative_weight.
     return_params: also return the final parameters (stacked over fits): (results, params).
+    graph_cache: optional SingleFitGraphCache for single-material CV fits with explicit
+             timestamps, CUDA graph Adam and a fixed step schedule.
+    width: one width repeated for depth hidden layers, or a sequence giving the
+             width of each hidden layer in order.
+    snapshot_steps: completed update numbers (0 means initialization) at which to record
+             theta and absolute c/v RMSE over valid observations. The optional callback
+             receives (step, independent CPU parameter copies stacked over fits, batch metrics).
+             Capturing a snapshot does not advance the residual sampler or restart Adam.
     residual: "strong" (pointwise PDE residuals) or "fv" (integral form on cells, Build 1; see loss_cv_fv).
     hard_bc: wall fluxes built into the c network (Build 1; see c_point).  c then depends on theta, so stage 1
              fits from each start separately (no stage-1 cache) and theta stays frozen there.
@@ -446,6 +455,11 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                  residual points, batched over the fits (two-loop recursion and Armijo backtracking per fit)
     """
     B = len(ys)
+    if graph_cache is not None and (B != 1 or build != "cv" or str(device) != "cuda"
+                                    or observation_stats is None or not math.isinf(max_wall_s)
+                                    or lbfgs_iters or fit_lbfgs_iters or prefit_cache):
+        raise ValueError("Graph reuse requires one CV material, explicit observation times, CUDA, "
+                         "fixed Adam budgets and uncached field preparation")
     prepare_material(device, dtype)
     obs = obs or OBS_DEFAULT
     LS = Losses(build, dtype, device, n_res, n_times, n_cells, w, residual=residual, hard_bc=hard_bc, obs=obs,
@@ -461,7 +475,15 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     if observation_stats is not None:
         for key in ("times", "end_times"):
             S[key] = torch.tensor(np.stack([s[key] for s in st]), device=device, dtype=dtype)
-    sizes = [3] + [width] * depth + [1]
+    if isinstance(width, (tuple, list)):
+        if not width or any(not isinstance(wi, (int, np.integer)) or wi <= 0 for wi in width):
+            raise ValueError("Explicit hidden widths must be positive integers")
+        hidden_widths = list(width)
+        architecture_tag = "-".join(map(str, hidden_widths))
+    else:
+        hidden_widths = [width] * depth
+        architecture_tag = f"{width}x{depth}"
+    sizes = [3, *hidden_widths, 1]
     P = []
     for i, (th0, sd) in enumerate(zip(theta0s, seeds)):
         g = torch.Generator().manual_seed(int(sd))
@@ -513,6 +535,24 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     t0 = time.perf_counter()
     ctr = dict(step=0, evals=0)
     stage_wall = {}
+    requested_snapshots = set(snapshot_steps)
+    snapshots = [{} for _ in range(B)] if requested_snapshots else []
+
+    def snapshot(stage, p):
+        step = ctr["step"]
+        with torch.no_grad():
+            c_error = data_rmse(p, S).cpu().numpy()
+            v_error = (vmap(lambda q, state: LS.vdata_loss(q, state).sqrt())(p, S).cpu().numpy()
+                       if build == "cv" else np.full(B, np.nan))
+            theta = torch.sigmoid(p["phi"]).cpu().numpy()
+        elapsed = time.perf_counter() - t0
+        for b in range(B):
+            snapshots[b][str(step)] = dict(phase=stage, elapsed_s=elapsed, theta=theta[b].tolist(),
+                                           c_rmse=float(c_error[b]), v_rmse=float(v_error[b]))
+        if snapshot_callback is not None:
+            copied = _rebuild(p, iter([z.detach().to("cpu", copy=True) for z in _leaves(p)]))
+            metrics = dict(phase=stage, elapsed_s=elapsed, theta=theta, c_rmse=c_error, v_rmse=v_error)
+            snapshot_callback(step, copied, metrics)
 
     def record(stage, p):
         with torch.no_grad():
@@ -538,11 +578,18 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
     def adam(params, n, lr0, mult, step_fn, stage, decay_n=None, offset=0, frozen=None):
         """n Adam steps (fresh moments); lr cosine-decays from lr0 to lr0/100 over decay_n steps, phi at mult x."""
         decay_n = decay_n or n
+        if graph_cache is not None and not hasattr(step_fn, "eager"):
+            raise ValueError("Graph reuse requires DIFFION_PINN_GRAPHS=1")
         if hasattr(step_fn, "eager"):
             rates = [lr0 * (0.01 + 0.99 * 0.5 * (1 + math.cos(math.pi * min(offset+i, decay_n) / decay_n))) for i in range(n)]
             multipliers = [0.0 if frozen and frozen[j] else mult if z else 1.0 for j, z in enumerate(is_phi)]
+            if graph_cache is not None:
+                return graph_cache.train(params, rates, multipliers, step_fn.eager, LS, S, gen, stage,
+                                         ctr, log_every, lambda p: record(stage, p), attach,
+                                         requested_snapshots, lambda p: snapshot(stage, p))
             return graph_adam(params, n, rates, multipliers, step_fn, draw, ctr, log_every,
-                              lambda p: record(stage, p), attach, max_wall_s)
+                              lambda p: record(stage, p), attach, max_wall_s,
+                              requested_snapshots, lambda p: snapshot(stage, p))
         m = [torch.zeros_like(x) for x in _leaves(params)]
         v = [torch.zeros_like(x) for x in _leaves(params)]
         for i in range(n):
@@ -565,6 +612,8 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             if logged:
                 attach(L, parts)
             ctr["step"] += 1
+            if ctr["step"] in requested_snapshots:
+                snapshot(stage, params)
         return params, False
 
     def lbfgs(params, n, step_fn=step_full, stage="lbfgs", frozen=None):
@@ -622,11 +671,15 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
                 gamma = torch.where(failed, 1.0 / gn.norm(dim=1).clamp_min(1e-12), gamma)
             X, f, g = Xn, fn, gn
             ctr["step"] += 1
+            if ctr["step"] in requested_snapshots:
+                snapshot(stage, unflat(X))
         return unflat(X), False
 
     stopped = False
+    if 0 in requested_snapshots:
+        snapshot("initial", params)
     cache = Path(prefit_cache) if prefit_cache and not hard_bc else None
-    tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{width}x{depth}"
+    tag = f"{build}_v{int(LS.use_vdata)}_f{fit_steps}_lr{fit_lr:g}_l{fit_lbfgs_iters}_w{architecture_tag}"
     if LS.spatial_derivative_weight:
         tag += f"_slope{LS.spatial_derivative_weight!r}"
     if obs is not OBS_DEFAULT:                                   # never mix stage-1 fits of different data grids
@@ -685,6 +738,9 @@ def train_batch(ys, iotas, theta0s, build, seeds, steps=5000, lr=1e-3, phi_lr_mu
             metrics = {k: z.cpu().tolist() for k, z in vmap(LS.spatial_derivative_metrics)(params, S).items()}
         for b, row in enumerate(out):
             row.update({k: z[b] for k, z in metrics.items()})
+    if snapshots:
+        for row, values in zip(out, snapshots):
+            row["snapshots"] = values
     if return_params:
         return out, params
     return out

@@ -71,3 +71,72 @@ python -m one_current.clean_gaussian.fine_df_run --workers 18
 python -m one_current.clean_gaussian.fine_df_validate
 python one_current/clean_gaussian/report.py --fine-only
 ```
+
+## 400-update concentration and velocity PINNs on 290 spatial bins
+
+This experiment uses the same eight PINN test materials (2, 3, 11, 21, 22, 32, 37, 45). Each material uses its original current triplet and the first current of that triplet. Both domains use 290 spatial averages and every valid native timestamp up to 151. Each field network takes position, time and current. The concentration target is the observed bin average. Velocity is reconstructed independently for each selected current from that domain's observed concentration and time intervals.
+
+Every fit uses 400 new Adam updates. Standard training fits both field networks and the eight material coefficients jointly for all 400 updates. The observation loss has weight 1 and the three physics terms each have weight 100. The standard checkpoint at update 300 preserves the optimizer state and its continuous learning-rate schedule.
+
+For the data-first methods, the base networks fit concentration and reconstructed velocity for 189 updates with fixed material coefficients. Another 111 updates train both fields and material coefficients with observation weight 0.01 and physics weights 1. The two correction fits start from exactly the same base at update 300. For 100 updates each, two additive correction networks and the material coefficients are trainable. The observation weight in these two fits is 1 or 100, with physics weights 1 in both. All methods use field-value supervision and two-point quadrature for observed concentration bins.
+
+The archived FNO + TTT coefficient estimates were obtained on the original 20 × 13 inputs and include 150 earlier TTT updates, accounted for separately. Center starts use eight coefficients set to 0.5. The HTML shows updates 0, 300 and 400 on the material's own observed concentration interval. Each reported correction pipeline includes its shareable stage-1 cost. For the wall time of the full study, that shared fit is counted once.
+
+With the paired input data, original split index and archived FNO + TTT estimates available, run from the repository root:
+
+```powershell
+python -m one_current.clean_gaussian.fine_cv_pinn
+python one_current/clean_gaussian/report.py --fine-cv-only
+```
+
+### Paired network-width comparison
+
+The wider concentration and velocity networks have layer sizes 3 → 44 → 47 → 46 → 1. Their four affine layers contain 176, 2,115, 2,208 and 47 weights and biases, respectively, or 4,546 per network. The 3 → 32 → 32 → 32 → 1 baseline has 2,273 per network. The additive correction networks use the widths of their corresponding base networks. The eight material coefficients are separate. Joint training and the correction phase optimize 9,100 parameters per material in the wider model, including those eight coefficients.
+
+The two widths use the same eight materials, observations, current selections, material starts, update budgets and random seeds. Each width has its own randomly initialized field weights. For each width, the two correction weights branch from identical saved parameters at update 300. The HTML compares both widths on each material and its own observed concentration range. The summary and material-level CSVs are `fine_cv_width_accuracy_cost.csv` and `fine_cv_width_materials.csv`. To reproduce this comparison after the baseline experiment:
+
+```powershell
+python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters
+python one_current/clean_gaussian/report.py --fine-cv-width-only
+```
+
+### Comparing 400 and 500 updates with the wider networks
+
+Both budgets use 4,546 parameters per concentration or velocity network on the same eight materials, with matched initial field weights, material coefficients, observations and current selections. Each standard fit applies joint Adam training throughout and scales its cosine learning-rate schedule to the full budget. Each data-first fit spends approximately 47.2% of the budget fitting the fields, 27.8% jointly fitting the fields and properties, and 25% fitting the additive corrections and properties. These phases take 189, 111 and 100 updates in the original run, or 236, 139 and 125 updates in the longer run. Within each budget, the two correction weights share the base checkpoint and its fitted fields. The 500-update fits train from the initial state with their own schedules.
+
+The paired CSVs and HTML compare the initialization, end of the first 75% of updates, and final fits on each material's observed concentration interval. Each budget counts fresh PINN updates, with the earlier 150 TTT updates listed separately for the warm start. To run the longer budget and refresh the comparison:
+
+```powershell
+python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500
+python one_current/clean_gaussian/report.py --fine-cv-budget-only
+```
+
+### Expanded 300-material test at 500 updates
+
+The expanded cohort uses the same 300 held-out material IDs and current selections as the 290 × 151 derivative-free study. Each material contributes 24 endpoints across clean and Gaussian-noisy observations, one and three currents, center and FNO + TTT starts, and three PINN methods. The standard fit uses 500 joint updates. The two data-first fits share the 236-update field prefit and 139-update joint fit, then each uses 125 correction updates with an observation weight of 1 or 100. All use the wider networks with 4,546 parameters per field. Velocity targets come from the selected domain's observed concentration.
+
+The runner imports the matching 500-update checkpoints from the eight-material pilot and trains the other 292 materials. The cohort totals 7,200 endpoints, including 192 imported pilot endpoints. The matched 400-versus-500 update comparison covers the original eight materials. Property errors throughout use each material's concentration interval for the selected domain and currents.
+
+The expanded run used single-material GPU fits throughout. It began with separate CUDA graphs for each fit and then reused matching graphs across fits after a numerical equivalence check. The material CSV records the execution mode for each stage. The timing comparison and field checks are in `fine_cv_double_500_300_results/acceleration_validation.json` and `fine_cv_double_500_300_results/raw_field_validation.json`.
+
+#### Rebuild the published report and CSVs
+
+Open `Clean_Gaussian_Benchmark.html` and select **300-material c/v PINNs**. The summary CSV contains 24 conditions. The material CSV contains 7,200 rows with errors at initialization, update 375 and update 500, observed concentration ranges, and recorded costs. The archived coefficient and error arrays, protocol metadata, validation records and existing HTML provide the inputs to regenerate the four c/v views. These commands run from the repository root and use CPU postprocessing:
+
+```powershell
+python one_current/clean_gaussian/report.py --fine-cv-only
+python one_current/clean_gaussian/report.py --fine-cv-width-only
+python one_current/clean_gaussian/report.py --fine-cv-budget-only
+python one_current/clean_gaussian/report.py --fine-cv-300-only
+```
+
+#### Train a fresh 300-material cohort
+
+The per-material field-network weights live in each study’s local `checkpoints/` directory. For a fresh training run with the paired native observations, split index and archived FNO + TTT starts, train the eight-material 500-update pilot first. The expanded run then checks and reuses those exact 64 local pilot checkpoints before training the remaining 292 materials.
+
+```powershell
+python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500
+python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500 --materials 300 --reuse-graphs
+```
+
+Use a separate checkout for a new training campaign to retain the published observations, timings and validation records. The graph-timing crossover on materials 1275 and 1355 and the native-field validation hashes describe the archived campaign. A new campaign has its own measured timings and validation records.

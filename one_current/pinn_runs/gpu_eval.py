@@ -52,7 +52,8 @@ def replayable(function, device):
     return evaluate
 
 
-def graph_adam(params, n, rates, multipliers, step_fn, draw, ctr, log_every, record, attach, max_wall_s):
+def graph_adam(params, n, rates, multipliers, step_fn, draw, ctr, log_every, record, attach, max_wall_s,
+               snapshot_steps=(), snapshot=None):
     """Capture the complete Adam update; feed the original RNG samples and cosine schedule each step."""
     leaves, spec = tree_flatten(params)
     static = [p.clone() for p in leaves]
@@ -98,4 +99,6 @@ def graph_adam(params, n, rates, multipliers, step_fn, draw, ctr, log_every, rec
         if logged:
             attach(loss, parts)
         ctr["step"] += 1
+        if ctr["step"] in snapshot_steps:
+            snapshot(current)
     return current, False
