@@ -1,0 +1,258 @@
+{
+  "grid_space_time": [
+    80,
+    52
+  ],
+  "domain": "clean",
+  "currents": 3,
+  "selected_current_slots_one_based": [
+    1,
+    2,
+    3
+  ],
+  "seed": 2,
+  "architecture": "conv_mlp",
+  "model": {
+    "module_file": "grid40_learn.py",
+    "class_name": "ConvMLP",
+    "constructor_kwargs": {
+      "currents": 3,
+      "n_space": 80
+    },
+    "dense_layer_sizes": [
+      1641,
+      40,
+      40,
+      8
+    ],
+    "activation": "GELU after each convolution pass and after each 40-unit hidden layer.",
+    "conv_in_channels": 4,
+    "conv_out_channels": 3,
+    "conv_kernel_time_space": [
+      3,
+      3
+    ],
+    "conv_padding_time_space": [
+      1,
+      1
+    ],
+    "conv_strides_time_space": [
+      [
+        2,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "conv_input_channels": [
+      "concentration_deviation",
+      "velocity",
+      "time",
+      "validity_mask"
+    ],
+    "conv_weights_shared_across_selected_currents": true,
+    "conv_weights_shared_across_passes": true,
+    "adaptive_pool_time_space": null,
+    "conv_features_per_current": [
+      3,
+      13,
+      14
+    ]
+  },
+  "trainable_real_parameters": 67759,
+  "checkpoint": {
+    "file": "best.pt",
+    "format": "PyTorch state_dict",
+    "sha256": "0b3cae88f2605c1248cc472b74d38e8a573479608c52766144704375f4fe54dc",
+    "bytes": 273948,
+    "original_file": "cache/grid80_checkpoints/seed2/clean__3__conv_mlp/best.pt",
+    "selection": "first minimum of the original validation coefficient MSE",
+    "epoch_one_based": 88,
+    "validation_coefficient_mse": 0.03407417982816696
+  },
+  "inputs": {
+    "tensor_order": [
+      "batch",
+      "channels",
+      "time",
+      "space"
+    ],
+    "shape_without_batch": [
+      16,
+      52,
+      80
+    ],
+    "channel_order": "all k concentration deviations, k velocities, k validity masks, k times, k iotas, then shared x",
+    "concentration_offset": 1.0,
+    "concentration_deviation_rms": [
+      0.21253328025341034,
+      0.179730623960495,
+      0.26139184832572937
+    ],
+    "velocity_rms": [
+      0.23457854986190796,
+      0.15698209404945374,
+      0.3208460807800293
+    ],
+    "rms_fit_split": "train",
+    "time_divisor": 1.070154577883472,
+    "dimensionless_iota_divisor": 5.0,
+    "x_coordinate": "linspace(0,1,n_space), endpoints included",
+    "invalid_values": "zero concentration deviation, velocity, time and frame mask; retain current and x"
+  },
+  "outputs": {
+    "raw": "eight logits; apply sigmoid to obtain normalized coefficients",
+    "order": [
+      "D_0",
+      "D_1",
+      "D_2",
+      "D_3",
+      "t_plus_0",
+      "t_plus_1",
+      "t_plus_2",
+      "t_plus_3"
+    ]
+  },
+  "training": {
+    "n_train": 1402,
+    "n_validation": 156,
+    "n_test": 389,
+    "epochs": 100,
+    "batch_size": 64,
+    "shuffle_seed": 3,
+    "loss": "MSE of eight normalized coefficients",
+    "original_epoch_validation_mse": [
+      0.06019733101129532,
+      0.05726299062371254,
+      0.05500728636980057,
+      0.05209815129637718,
+      0.048844095319509506,
+      0.046056997030973434,
+      0.04419939965009689,
+      0.04179329797625542,
+      0.04064592346549034,
+      0.04184740036725998,
+      0.04004773125052452,
+      0.03965430334210396,
+      0.03930030018091202,
+      0.039645060896873474,
+      0.03991077095270157,
+      0.03942599892616272,
+      0.039609916508197784,
+      0.03881393373012543,
+      0.0391298271715641,
+      0.03777172043919563,
+      0.0377291664481163,
+      0.037331100553274155,
+      0.03838539123535156,
+      0.037264373153448105,
+      0.0380774661898613,
+      0.03690053150057793,
+      0.03700941801071167,
+      0.03719215467572212,
+      0.0369599387049675,
+      0.03612253814935684,
+      0.036578740924596786,
+      0.03718293085694313,
+      0.03641209378838539,
+      0.036702822893857956,
+      0.03707781434059143,
+      0.036077987402677536,
+      0.03678198531270027,
+      0.03627914562821388,
+      0.035247914493083954,
+      0.036587998270988464,
+      0.03615956753492355,
+      0.03536749631166458,
+      0.03519689664244652,
+      0.035250015556812286,
+      0.03533560782670975,
+      0.03614075854420662,
+      0.03530338034033775,
+      0.03592895716428757,
+      0.035815708339214325,
+      0.03571387380361557,
+      0.03576156497001648,
+      0.03499337285757065,
+      0.03539884090423584,
+      0.03531245142221451,
+      0.035134993493556976,
+      0.03521887585520744,
+      0.034933872520923615,
+      0.035086747258901596,
+      0.034851375967264175,
+      0.03486373648047447,
+      0.03494369611144066,
+      0.03450324758887291,
+      0.03448719158768654,
+      0.03539222478866577,
+      0.034871626645326614,
+      0.03473860025405884,
+      0.03519818186759949,
+      0.03457002341747284,
+      0.03482554480433464,
+      0.03443712368607521,
+      0.03442203253507614,
+      0.034102316945791245,
+      0.03454490751028061,
+      0.03452379256486893,
+      0.03429623320698738,
+      0.03440148010849953,
+      0.03433208167552948,
+      0.03430180251598358,
+      0.03408830612897873,
+      0.034253790974617004,
+      0.03410773351788521,
+      0.03423106297850609,
+      0.03408270701766014,
+      0.03412795811891556,
+      0.03408569470047951,
+      0.034295205026865005,
+      0.03435225412249565,
+      0.03407417982816696,
+      0.03422295302152634,
+      0.034104157239198685,
+      0.034150343388319016,
+      0.034184787422418594,
+      0.03418068215250969,
+      0.0341498926281929,
+      0.03417116031050682,
+      0.03416556492447853,
+      0.03418254107236862,
+      0.03416775166988373,
+      0.034165363758802414,
+      0.034165579825639725
+    ],
+    "optimizer": "AdamW",
+    "initial_learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_steps": 2200,
+    "minimum_learning_rate": 0,
+    "scheduler_frequency": "after every optimizer step"
+  },
+  "timing": {
+    "training_seconds": 8.405157999950461,
+    "test_seconds_for_389": 0.003487700002733618,
+    "test_batch": 128,
+    "test_repeats": 10,
+    "device": "NVIDIA GeForce RTX 4090"
+  },
+  "files": {
+    "materials_from_package_root": "materials.csv",
+    "split_indices_from_package_root": "split_indices.json",
+    "epoch_history_from_model_folder": "epochs.csv",
+    "epoch_history_provenance_from_model_folder": "loss_provenance.json",
+    "original_history_from_benchmark_root": "cache/grid80_checkpoints/seed2/clean__3__conv_mlp/training.json",
+    "original_history_sha256": "3b3abb7a8f0e127293aecd2a81ce0e349de6e415c548ba0acf9c7174e6f4069e",
+    "predictions_from_benchmark_root": "grid80_results/seed2/clean__3__conv_mlp.npz",
+    "timing_from_benchmark_root": "grid80_results/seed2/clean__3__conv_mlp.json"
+  }
+}

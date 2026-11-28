@@ -1,0 +1,240 @@
+{
+  "grid_space_time": [
+    20,
+    13
+  ],
+  "domain": "clean",
+  "currents": 1,
+  "selected_current_slots_one_based": [
+    1
+  ],
+  "seed": 0,
+  "architecture": "fno",
+  "model": {
+    "module_file": "learn.py",
+    "class_name": "FNO",
+    "constructor_kwargs": {
+      "currents": 1
+    },
+    "lift_channels": [
+      6,
+      11
+    ],
+    "padding_time_space": [
+      3,
+      4
+    ],
+    "fourier_blocks": 4,
+    "spectral_channels": 11,
+    "retained_modes_time_space": [
+      5,
+      6
+    ],
+    "spectral_weight_banks_per_block": 2,
+    "pointwise_kernel": [
+      1,
+      1
+    ],
+    "projection_channels": [
+      11,
+      22
+    ],
+    "pooling": "concatenated masked spatial-temporal mean and maximum",
+    "dense_layer_sizes": [
+      44,
+      128,
+      8
+    ],
+    "activation": "GELU after Fourier blocks 1 through 3, after projection, and after dense 128."
+  },
+  "trainable_real_parameters": 65741,
+  "checkpoint": {
+    "file": "best.pt",
+    "format": "PyTorch state_dict",
+    "sha256": "f82462bcda64c6a8877d412cba01fb53dbb92a7ac4ba2a2212e614bde0e68639",
+    "bytes": 269818,
+    "original_file": "learned_checkpoints/clean__1__fno/best.pt",
+    "selection": "first minimum of the original validation coefficient MSE",
+    "epoch_one_based": 83,
+    "validation_coefficient_mse": 0.033769723027944565
+  },
+  "inputs": {
+    "tensor_order": [
+      "batch",
+      "channels",
+      "time",
+      "space"
+    ],
+    "shape_without_batch": [
+      6,
+      13,
+      20
+    ],
+    "channel_order": "all k concentration deviations, k velocities, k validity masks, k times, k iotas, then shared x",
+    "concentration_offset": 1.0,
+    "concentration_deviation_rms": [
+      0.21159549057483673
+    ],
+    "velocity_rms": [
+      0.36121636629104614
+    ],
+    "rms_fit_split": "train",
+    "time_divisor": 1.070154577883472,
+    "dimensionless_iota_divisor": 5.0,
+    "x_coordinate": "linspace(0,1,n_space), endpoints included",
+    "invalid_values": "zero concentration deviation, velocity, time and frame mask; retain current and x"
+  },
+  "outputs": {
+    "raw": "eight logits; apply sigmoid to obtain normalized coefficients",
+    "order": [
+      "D_0",
+      "D_1",
+      "D_2",
+      "D_3",
+      "t_plus_0",
+      "t_plus_1",
+      "t_plus_2",
+      "t_plus_3"
+    ]
+  },
+  "training": {
+    "n_train": 1402,
+    "n_validation": 156,
+    "n_test": 389,
+    "epochs": 100,
+    "batch_size": 64,
+    "shuffle_seed": 1,
+    "loss": "MSE of eight normalized coefficients",
+    "original_epoch_validation_mse": [
+      0.06712768226861954,
+      0.06337717175483704,
+      0.06353210657835007,
+      0.06312115490436554,
+      0.061839520931243896,
+      0.061219874769449234,
+      0.05955697223544121,
+      0.0554685965180397,
+      0.05325578525662422,
+      0.05151412636041641,
+      0.04959166422486305,
+      0.049125708639621735,
+      0.04741726070642471,
+      0.04555211216211319,
+      0.044353656470775604,
+      0.041898224502801895,
+      0.04061080887913704,
+      0.04122094064950943,
+      0.039796870201826096,
+      0.03981826454401016,
+      0.03947063162922859,
+      0.03780202567577362,
+      0.039443451911211014,
+      0.038206908851861954,
+      0.037680789828300476,
+      0.03780616447329521,
+      0.03717051446437836,
+      0.03774767369031906,
+      0.0383787602186203,
+      0.03731553256511688,
+      0.03845782205462456,
+      0.03810517489910126,
+      0.03646611049771309,
+      0.03656761348247528,
+      0.03658008575439453,
+      0.037353649735450745,
+      0.036742016673088074,
+      0.03595489636063576,
+      0.03613131493330002,
+      0.03618864715099335,
+      0.035727016627788544,
+      0.035787999629974365,
+      0.03538458049297333,
+      0.03613082319498062,
+      0.03560825437307358,
+      0.035662490874528885,
+      0.03547228127717972,
+      0.03503372520208359,
+      0.03540695831179619,
+      0.034919749945402145,
+      0.03557359427213669,
+      0.03496335819363594,
+      0.03522033616900444,
+      0.03535900264978409,
+      0.03533366322517395,
+      0.0347595140337944,
+      0.03445424512028694,
+      0.03471968695521355,
+      0.035791411995887756,
+      0.035324759781360626,
+      0.034360505640506744,
+      0.03457807004451752,
+      0.034503012895584106,
+      0.034036602824926376,
+      0.034242283552885056,
+      0.03465409204363823,
+      0.03437097743153572,
+      0.034436553716659546,
+      0.0348045751452446,
+      0.0340392179787159,
+      0.03410081937909126,
+      0.03409067541360855,
+      0.034298453480005264,
+      0.034143853932619095,
+      0.03394422307610512,
+      0.03414265811443329,
+      0.03396021947264671,
+      0.03387375921010971,
+      0.03397361934185028,
+      0.0341653935611248,
+      0.0341002382338047,
+      0.03393000736832619,
+      0.033769723027944565,
+      0.03398537263274193,
+      0.034032661467790604,
+      0.03381148353219032,
+      0.03382425382733345,
+      0.033865731209516525,
+      0.033826567232608795,
+      0.033807579427957535,
+      0.0337849035859108,
+      0.033862750977277756,
+      0.03383303061127663,
+      0.03379378095269203,
+      0.033808622509241104,
+      0.03382224962115288,
+      0.03380266949534416,
+      0.033806148916482925,
+      0.03380630537867546,
+      0.03380746394395828
+    ],
+    "optimizer": "AdamW",
+    "initial_learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_steps": 2200,
+    "minimum_learning_rate": 0,
+    "scheduler_frequency": "after every optimizer step"
+  },
+  "timing": {
+    "training_seconds": 14.553234499995597,
+    "test_seconds_for_389": 0.020756789995357395,
+    "test_batch": 128,
+    "test_repeats": 10,
+    "device": "NVIDIA GeForce RTX 4090"
+  },
+  "files": {
+    "materials_from_package_root": "materials.csv",
+    "split_indices_from_package_root": "split_indices.json",
+    "epoch_history_from_model_folder": "epochs.csv",
+    "epoch_history_provenance_from_model_folder": "loss_provenance.json",
+    "original_history_from_benchmark_root": "learned_checkpoints/clean__1__fno/training.json",
+    "original_history_sha256": "eb69a7866e67d9c17aeb6b863f89232d6ecfc4e3e0f7f5806367cd01ea4baeb2",
+    "predictions_from_benchmark_root": "results/clean__1__fno.npz",
+    "timing_from_benchmark_root": "results/clean__1__fno.json"
+  }
+}

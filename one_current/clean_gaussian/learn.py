@@ -78,7 +78,8 @@ class FNO(nn.Module):
             x = spectral(x) + point(x)
             if k < 3:
                 x = F.gelu(x)
-        x = F.gelu(self.proj(x[:, :, :13, :20]))
+        n_time, n_space = features.shape[-2:]
+        x = F.gelu(self.proj(x[:, :, :n_time, :n_space]))
         return self.head(masked_pool(x, self.mask(features)))
 
 
@@ -96,14 +97,9 @@ class MLP(nn.Module):
                                    features[:, 4*k:5*k, 0, 0]], 1))
 
 
-def prepare(z, domain, currents, device):
-    """Compute v from measured c using per-current valid intervals and physical times."""
-    def tensor(name, dtype=torch.float32):
-        return torch.as_tensor(z[name][:, :currents], dtype=dtype, device=device)
-    raw = tensor(domain)
-    valid = tensor('mask', torch.bool)
-    times = tensor('tau')
-    iota = tensor('iota')
+def reconstruct_observations(raw, valid, times, iota):
+    """Compute velocity from measured c using valid intervals and physical times."""
+    n_space = raw.shape[-1]
     assert torch.equal(torch.isfinite(raw).all(-1), valid)
     c = torch.nan_to_num(raw, nan=1.0)
     times = torch.where(valid, times, 0.0)
@@ -116,17 +112,28 @@ def prepare(z, domain, currents, device):
     div = F.pad(midpoint.float(), (0, 1)) + F.pad(midpoint.float(), (1, 0))
     dcdt = dcdt / div[..., None].clamp_min(1)
     cf = (c[..., 1:] + c[..., :-1])/2
-    a, _ = alpha_V(cf)
     _, volume = alpha_V(c)
     faces = torch.cat([c[..., :1], cf, c[..., -1:]], dim=-1)
-    flux = iota[:, :, None, None] - F.pad(dcdt.cumsum(-1)/20, (1, 0))
+    flux = iota[:, :, None, None] - F.pad(dcdt.cumsum(-1)/n_space, (1, 0))
     v = [torch.zeros_like(cf[..., 0])]
     q = flux[..., 0]
-    for j in range(20):
+    for j in range(n_space):
         v.append((v[-1] - volume[..., j]*(flux[..., j+1] - q)) /
                  (1 - volume[..., j]*faces[..., j+1]))
         q = flux[..., j+1] - faces[..., j+1]*v[-1]
     velocity = torch.stack([(left+right)/2 for left,right in zip(v[:-1], v[1:])], -1)
+    return c, velocity, times, midpoint, ct, cf, volume
+
+
+def prepare(z, domain, currents, device):
+    def tensor(name, dtype=torch.float32):
+        return torch.as_tensor(z[name][:, :currents], dtype=dtype, device=device)
+    raw = tensor(domain)
+    n_time, n_space = raw.shape[-2:]
+    valid = tensor('mask', torch.bool)
+    iota = tensor('iota')
+    c, velocity, times, midpoint, ct, cf, volume = reconstruct_observations(raw, valid, tensor('tau'), iota)
+    a, _ = alpha_V(cf)
     splits = {key: torch.as_tensor(np.flatnonzero(z['split'] == key), device=device)
               for key in ('train', 'val', 'test')}
     tr = splits['train']
@@ -137,11 +144,11 @@ def prepare(z, domain, currents, device):
                       velocity/scale[1, :, None, None]*mask, mask,
                       times[..., None].expand_as(c)/(36000/33640),
                       iota[:, :, None, None].expand_as(c)/5,
-                      torch.linspace(0, 1, 20, device=device)[None,None,None,:].expand(len(c),1,13,20)],1)
+                      torch.linspace(0, 1, n_space, device=device)[None,None,None,:].expand(len(c),1,n_time,n_space)],1)
     if not torch.isfinite(feat).all():
         raise ValueError('Nonfinite input features')
-    ct_scale = float((ct[tr].square().sum()/midpoint[tr].sum()/20).sqrt())
-    fields = dict(basis=bernstein_basis((cf/2).clamp(0,1)), a_cx=a*c.diff(dim=-1)*20,
+    ct_scale = float((ct[tr].square().sum()/midpoint[tr].sum()/n_space).sqrt())
+    fields = dict(basis=bernstein_basis((cf/2).clamp(0,1)), a_cx=a*c.diff(dim=-1)*n_space,
                   volume=volume[..., :-1], cf=cf, ct=ct, valid=midpoint,
                   iota=iota[:, :, None, None])
     bounds = np.stack([np.nanmin(z[domain][:,:currents], axis=(1,2,3)),
@@ -159,12 +166,13 @@ def residual(theta, p, scale):
     wall = p['iota'].expand(*salt.shape[:-1],1)
     vel = (-p['volume']*torch.cat([wall,salt],-1).diff(dim=-1)).cumsum(-1)
     flux = torch.cat([wall,salt+p['cf']*vel,wall],-1)
-    div = 20*flux.diff(dim=-1)
+    n_space = p['ct'].shape[-1]
+    div = n_space*flux.diff(dim=-1)
     r = (p['ct'] + 0.5*(div[:,:,1:]+div[:,:,:-1]))/scale
-    return (r.square()*p['valid'][...,None]).sum((1,2,3))/(20*p['valid'].sum((1,2)))
+    return (r.square()*p['valid'][...,None]).sum((1,2,3))/(n_space*p['valid'].sum((1,2)))
 
 
-def fit(model, data, folder, epochs, seed):
+def fit(model, data, folder, epochs, seed, on_epoch_end=None):
     tr, va = data['splits']['train'], data['splits']['val']
     feat, truth = data['feat'], data['truth']
     opt = torch.optim.AdamW(model.parameters(), lr=.001)
@@ -190,6 +198,8 @@ def fit(model, data, folder, epochs, seed):
             if val < best:
                 best = val
                 best_state = copy.deepcopy(model.state_dict())
+            if on_epoch_end is not None:
+                on_epoch_end(model)
         if (epoch+1)%25 == 0:
             print(folder.name, epoch+1, round(val, 6), flush=True)
     sync()
@@ -222,7 +232,8 @@ def independent(model, state, features):
         x = spectra(x, state[f'spec.{j}.w1'], state[f'spec.{j}.w2'], True) + conv(x, f'pw.{j}')
         if j < 3:
             x = F.gelu(x)
-    x = F.gelu(conv(x[:,:,:13,:20], 'proj'))
+    n_time, n_space = features.shape[-2:]
+    x = F.gelu(conv(x[:,:,:n_time,:n_space], 'proj'))
     x = masked_pool(x, model.mask(features))
     return linear(F.gelu(linear(x, 'head.0')), 'head.2')
 
