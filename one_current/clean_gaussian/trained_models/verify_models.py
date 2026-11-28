@@ -1,5 +1,7 @@
 """Reproduce held-out material 000002 predictions on CPU from packaged files."""
 import argparse
+import hashlib
+import json
 from itertools import product
 from pathlib import Path
 import sys
@@ -36,8 +38,16 @@ def verify(root=PACKAGE, checkpoint=None):
         assert example["material_id"].item() == 2
         for leaf, width, domain, count, seed, arch in expected_runs:
             model = load_checkpoint(leaf)
-            predicted = model(example[f"{domain}_{width}"][:count], example[f"tau_{width}"][:count],
-                              example["iota"][:count], example[f"mask_{width}"][:count])[0].numpy()
+            manifest = json.loads((leaf/"manifest.json").read_text(encoding="utf-8"))
+            corrected = manifest.get("dataset",{}).get("dataset_revision") == "corrected_grid_native_v1"
+            if corrected:
+                history = leaf / manifest["files"]["epoch_history_from_model_folder"]
+                canonical = history.read_bytes().replace(b"\r\n", b"\n")
+                if hashlib.sha256(canonical).hexdigest() != manifest["files"]["packaged_epoch_history_lf_sha256"]:
+                    raise ValueError(f"Packaged epoch history checksum differs: {history}")
+            prefix = "gaussian_noisy_" if corrected else ""
+            predicted = model(example[f"{domain}_{width}"][:count], example[f"{prefix}tau_{width}"][:count],
+                              example["iota"][:count], example[f"{prefix}mask_{width}"][:count])[0].numpy()
             reference = example[f"expected_{width}_{domain}_{count}_{seed}_{arch}"]
             difference = float(np.max(np.abs(predicted - reference)))
             np.testing.assert_allclose(predicted, reference, atol=5e-5, rtol=0, err_msg=str(leaf))

@@ -1,0 +1,74 @@
+{
+  "train_s": 8.711113799945451,
+  "test_s": 0.008431189996190368,
+  "test_repeats": 10,
+  "test_batch": 128,
+  "architecture": "conv_mlp",
+  "currents": 3,
+  "domain": "gaussian_noisy",
+  "seed": 1,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "parameters": 67759,
+  "params": 67759,
+  "epochs": 100,
+  "batch_size": 64,
+  "best_epoch": 54,
+  "best_val_coef_mse": 0.03562792018055916,
+  "loss": "MSE of eight normalized coefficients",
+  "input_rms": [
+    [
+      0.2130950689315796,
+      0.17760920524597168,
+      0.2687017023563385
+    ],
+    [
+      0.17658059298992157,
+      0.1195606216788292,
+      0.24903865158557892
+    ]
+  ],
+  "optimizer": "AdamW",
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "scheduler": "CosineAnnealingLR, per optimizer step",
+  "n_space": 290,
+  "n_time": 151,
+  "device": "NVIDIA GeForce RTX 4090",
+  "conv_kernel": [
+    3,
+    3
+  ],
+  "conv_out_channels": 3,
+  "conv_shared_across_currents": true,
+  "conv_strides_time_space": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "conv_shared_across_layers": true,
+  "adaptive_pool": "Mask-weighted adaptive average from 38 x 73 to 26 x 40 after pass two",
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_grid": [
+    290,
+    151
+  ],
+  "source_folder": "Corrected_noisy_data/290_151_noised",
+  "input_sha256": "fd1ad078648b07f34738e1237f71464ade38ce4caceca069e0730fbbbc8793ee",
+  "source_sha256": "bfcae21023fd9341f1eeefc02a7972c13fc861b84eee69fec7aefe5edd1781dd",
+  "training_precision": "float32_tf32_off",
+  "cpu_threads": 1,
+  "checkpoint_root": "cache/corrected_noisy_supervised/290x151/checkpoints/fd1ad078648b07f3/same_fit_fp32",
+  "epoch_metrics": "same_fit",
+  "epoch_evaluation_s": 4.909241400077008
+}

@@ -1,0 +1,56 @@
+{
+  "train_s": 10.109506200067699,
+  "test_s": 0.005117160000372678,
+  "test_repeats": 10,
+  "test_batch": 128,
+  "architecture": "conv_mlp",
+  "currents": 1,
+  "domain": "clean",
+  "seed": 2,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "parameters": 23999,
+  "params": 23999,
+  "epochs": 100,
+  "batch_size": 64,
+  "best_epoch": 90,
+  "best_val_coef_mse": 0.03892768919467926,
+  "loss": "MSE of eight normalized coefficients",
+  "input_rms": [
+    [
+      0.21108704805374146
+    ],
+    [
+      0.1887102872133255
+    ]
+  ],
+  "optimizer": "AdamW",
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "scheduler": "CosineAnnealingLR, per optimizer step",
+  "n_space": 160,
+  "n_time": 104,
+  "device": "NVIDIA GeForce RTX 4090",
+  "conv_kernel": [
+    3,
+    3
+  ],
+  "conv_out_channels": 3,
+  "conv_shared_across_currents": true,
+  "conv_strides_time_space": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "conv_shared_across_layers": true
+}

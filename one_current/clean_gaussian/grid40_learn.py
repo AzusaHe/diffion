@@ -1,5 +1,6 @@
 """Supervised retraining on resolution-specific space-time observation grids."""
 import argparse
+import csv
 import json
 from time import perf_counter
 
@@ -8,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from learn import (BATCH, EPOCHS, FNO, HERE, fit, n_params, prepare, reconstruct_observations,
+from learn import (BATCH, EPOCHS, FNO, MLP, HERE, fit, n_params, prepare, reconstruct_observations,
                    save_json, save_pred, sync)
 
 FRAMES = {40:26, 80:52, 160:104, 290:151}
@@ -96,21 +97,60 @@ def prepare_supervised(observations, common, currents, device, chunk=32):
                 truth=torch.as_tensor(common['theta'], dtype=torch.float32, device=device))
 
 
-def run(data, domain, currents, architecture, seed, device, n_space, n_time):
+def write_epoch_metrics(model, data, states, info, checkpoint):
+    """Score the actual frozen epoch states after validation has selected the checkpoint."""
+    best = int(np.argmin(info['epoch_val_mse']))
+    selected = torch.load(checkpoint/'best.pt', map_location='cpu', weights_only=True)
+    if len(states) != EPOCHS or any(not torch.equal(t, states[best][k]) for k,t in selected.items()):
+        raise ValueError('Recorded epoch states do not match selected checkpoint')
+    path = checkpoint/'epoch_metrics.csv'
+    temp = path.with_suffix('.tmp')
+    model.eval()
+    with torch.no_grad(), temp.open('w', encoding='utf-8', newline='') as stream:
+        writer = csv.writer(stream)
+        writer.writerow(('epoch', 'train_mse', 'validation_mse', 'test_mse'))
+        for i, state in enumerate(states):
+            model.load_state_dict(state)
+            losses = {}
+            for split in ('train','test'):
+                rows = data['splits'][split]
+                prediction = torch.cat([model(data['feat'][b]).sigmoid() for b in rows.split(128)])
+                losses[split] = float((prediction-data['truth'][rows]).square().mean())
+            values = (losses['train'], info['epoch_val_mse'][i], losses['test'])
+            if not np.isfinite(values).all():
+                raise ValueError(f'Nonfinite epoch scores at epoch {i+1}')
+            writer.writerow((i+1, *values))
+    temp.replace(path)
+
+
+def run(data, domain, currents, architecture, seed, device, n_space, n_time,
+        *, result_root=None, checkpoint_root=None, provenance=None, epoch_metrics=False):
     stem = f'{domain}__{currents}__{architecture}'
-    folder = HERE / f'grid{n_space}_results' / f'seed{seed}'
+    folder = (result_root or HERE / f'grid{n_space}_results') / f'seed{seed}'
     folder.mkdir(parents=True, exist_ok=True)
     result = folder / stem
-    checkpoint = HERE / 'cache' / f'grid{n_space}_checkpoints' / f'seed{seed}' / stem
+    checkpoint = (checkpoint_root or HERE / 'cache' / f'grid{n_space}_checkpoints') / f'seed{seed}' / stem
     checkpoint.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(seed)
-    model = (FNO(currents) if architecture == 'fno' else ConvMLP(currents, n_space)).to(device)
-    expected = ({1:65741, 3:65851} if architecture == 'fno' else {1:23999, 3:67759})[currents]
+    if architecture == 'mlp' and n_space == 20:
+        model, counts = MLP(currents), {1:23888, 3:67648}
+    elif architecture == 'conv_mlp' and n_space in FRAMES:
+        model, counts = ConvMLP(currents, n_space), {1:23999, 3:67759}
+    elif architecture == 'fno':
+        model, counts = FNO(currents), {1:65741, 3:65851}
+    else:
+        raise ValueError(f'Unsupported {architecture} at space={n_space}')
+    model = model.to(device)
+    expected = counts[currents]
     if n_params(model) != expected:
         raise ValueError(f'{architecture} has {n_params(model)} real parameters, expected {expected}')
     idx = data['splits']['test']
-    if result.with_suffix('.json').is_file() and result.with_suffix('.npz').is_file():
+    trace = checkpoint/'epoch_metrics.csv'
+    checkpoint_complete = (checkpoint / 'training.json').is_file() and (checkpoint / 'best.pt').is_file()
+    if result.with_suffix('.json').is_file() and result.with_suffix('.npz').is_file() and (not epoch_metrics or (trace.is_file() and checkpoint_complete)):
         existing = json.loads(result.with_suffix('.json').read_text())
+        if provenance and any(existing.get(k) != v for k,v in provenance.items()):
+            raise ValueError(f'Data revision differs from completed fit at {result}')
         with np.load(result.with_suffix('.npz')) as preds:
             if (existing['parameters'] == expected and existing['epochs'] == EPOCHS
                     and preds['theta'].shape == (len(idx), 8)
@@ -118,11 +158,20 @@ def run(data, domain, currents, architecture, seed, device, n_space, n_time):
                     and np.array_equal(preds['ids'], data['ids'][idx.cpu().numpy()])):
                 return
         raise ValueError(f'Incomplete saved result for {result}')
-    if (checkpoint / 'training.json').is_file() and (checkpoint / 'best.pt').is_file():
+    if checkpoint_complete and (not epoch_metrics or trace.is_file()):
         info = json.loads((checkpoint / 'training.json').read_text())
     else:
         print('Training', n_space, seed, stem, flush=True)
-        info = fit(model, data, checkpoint, EPOCHS, seed)
+        states = []
+        def snapshot(current):
+            states.append({k:v.detach().cpu().clone() for k,v in current.state_dict().items()})
+        info = fit(model, data, checkpoint, EPOCHS, seed, on_epoch_end=snapshot if epoch_metrics else None)
+        if epoch_metrics:
+            start_diagnostics = perf_counter()
+            write_epoch_metrics(model, data, states, info, checkpoint)
+            info['epoch_evaluation_s'] = perf_counter()-start_diagnostics
+            save_json(checkpoint/'training.json',info)
+            del states
     model.load_state_dict(torch.load(checkpoint / 'best.pt', weights_only=True, map_location=device))
     model.eval()
     with torch.no_grad():
@@ -151,6 +200,10 @@ def run(data, domain, currents, architecture, seed, device, n_space, n_time):
                        conv_shared_across_layers=(n_space > 40))
         if n_space == 290:
             details['adaptive_pool'] = 'Mask-weighted adaptive average from 38 x 73 to 26 x 40 after pass two'
+    if provenance:
+        details.update(provenance)
+    if epoch_metrics:
+        details.update(epoch_metrics='same_fit', epoch_evaluation_s=info.get('epoch_evaluation_s'))
     save_json(result.with_suffix('.json'), details)
     print('Completed', seed, stem, f"{info['train_s']:.1f}s", flush=True)
 

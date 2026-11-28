@@ -1,0 +1,73 @@
+{
+  "train_s": 4.570472599938512,
+  "test_s": 0.0038282499997876586,
+  "test_repeats": 10,
+  "test_batch": 128,
+  "architecture": "conv_mlp",
+  "currents": 3,
+  "domain": "gaussian_noisy",
+  "seed": 1,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "parameters": 67759,
+  "params": 67759,
+  "epochs": 100,
+  "batch_size": 64,
+  "best_epoch": 35,
+  "best_val_coef_mse": 0.03687286749482155,
+  "loss": "MSE of eight normalized coefficients",
+  "input_rms": [
+    [
+      0.21272876858711243,
+      0.177419513463974,
+      0.2681529223918915
+    ],
+    [
+      0.18077771365642548,
+      0.12194512784481049,
+      0.25580114126205444
+    ]
+  ],
+  "optimizer": "AdamW",
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "scheduler": "CosineAnnealingLR, per optimizer step",
+  "n_space": 160,
+  "n_time": 104,
+  "device": "NVIDIA GeForce RTX 4090",
+  "conv_kernel": [
+    3,
+    3
+  ],
+  "conv_out_channels": 3,
+  "conv_shared_across_currents": true,
+  "conv_strides_time_space": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "conv_shared_across_layers": true,
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_grid": [
+    160,
+    104
+  ],
+  "source_folder": "Corrected_noisy_data/160_104_noised",
+  "input_sha256": "2dfe04915305f702ab5121d3d3de07b6b99a4408389d4bb645b648026d330373",
+  "source_sha256": "fa60309ae990d0c89bec3885a321ab9315e85ce799a2dc2f23e90224c5f39d5f",
+  "training_precision": "float32_tf32_off",
+  "cpu_threads": 1,
+  "checkpoint_root": "cache/corrected_noisy_supervised/160x104/checkpoints/2dfe04915305f702/same_fit_fp32",
+  "epoch_metrics": "same_fit",
+  "epoch_evaluation_s": 1.9220908000133932
+}

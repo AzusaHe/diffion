@@ -1,0 +1,34 @@
+{
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_grid": [
+    290,
+    151
+  ],
+  "space_bins": 290,
+  "max_selected_frames": 151,
+  "source_folder": "Corrected_noisy_data/290_151_noised",
+  "source_sha256": "bfcae21023fd9341f1eeefc02a7972c13fc861b84eee69fec7aefe5edd1781dd",
+  "index_sha256": "54ce4ad860653250202b78c2e1b31a0eb150b39b3c01e36f1673d4c9e6ca3bcb",
+  "input_sha256": "fd1ad078648b07f34738e1237f71464ade38ce4caceca069e0730fbbbc8793ee",
+  "eligible": 1947,
+  "source_materials": 2000,
+  "split": {
+    "train": 1402,
+    "val": 156,
+    "test": 389
+  },
+  "selected_frames_per_current": [
+    2,
+    151
+  ],
+  "valid_frames_total": 467233,
+  "currents": "Original index column 0 for one current, columns 0 to 2 for three currents.",
+  "selection": "All supplied grid cells and all valid supplied frames, copied directly.",
+  "concentration_ranges": {
+    "gaussian_noisy": [
+      0.0005867609870620072,
+      1.9942306280136108
+    ]
+  },
+  "single_frame_trajectories": 0
+}

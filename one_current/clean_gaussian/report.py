@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 if __package__:
+    from .corrected_noise_report import add_corrected_view, apply_corrected, archive_runs, corrected_exports
     from .derivative_report import PAIRED, build_comparison
     from .equal_budget_report import build_equal_budget
     from .fine_df_report import build_fine_df
@@ -14,7 +15,10 @@ if __package__:
     from .fine_cv_width_report import add_width_view, build_width_comparison
     from .fine_cv_budget_report import add_budget_view, build_budget_comparison
     from .fine_cv_cohort_report import add_cohort_view, build_cohort_report
+    from .fine_cv_w001_report import build_w001_report
+    from .grid_comparison_report import GRIDS, build_grids, model_name, slug_for, supervised_architecture
 else:
+    from corrected_noise_report import add_corrected_view, apply_corrected, archive_runs, corrected_exports
     from derivative_report import PAIRED, build_comparison
     from equal_budget_report import build_equal_budget
     from fine_df_report import build_fine_df
@@ -22,6 +26,8 @@ else:
     from fine_cv_width_report import add_width_view, build_width_comparison
     from fine_cv_budget_report import add_budget_view, build_budget_comparison
     from fine_cv_cohort_report import add_cohort_view, build_cohort_report
+    from fine_cv_w001_report import build_w001_report
+    from grid_comparison_report import GRIDS, build_grids, model_name, slug_for, supervised_architecture
 
 HERE = Path(__file__).resolve().parent
 DOMAINS = ("clean", "gaussian_noisy")
@@ -66,10 +72,11 @@ def errors(estimate,truth,lo,hi):
 
 def read(path): return json.loads(path.read_text(encoding="utf-8"))
 
+
 def write_report(payload, destination, html=None):
     if html is None:
         html=(HERE/"report_template.html").read_text(encoding="utf-8")
-        for token, source in (("__DERIVATIVE_VIEW__", "derivative_view.js"),
+        for token, source in (("__DERIVATIVE_VIEW__", "derivative_view.js"), ("__GRID_VIEW__", "grid_comparison_view.js"),
                               ("__FINE_DF_VIEW__", "fine_df_view.js")):
             html=html.replace(token,(HERE/source).read_text(encoding="utf-8"))
     if payload.get("fine_cv"):
@@ -80,10 +87,44 @@ def write_report(payload, destination, html=None):
         html = add_budget_view(HERE, html)
     if payload.get("fine_cv_300"):
         html = add_cohort_view(HERE, html)
+    if payload.get("fine_cv_w001"):
+        old = "DB.fine_cv_300.accuracy_csv_append]"
+        new = "DB.fine_cv_300.accuracy_csv_append,DB.fine_cv_w001.accuracy_csv_append]"
+        if old not in html and new not in html:
+            raise ValueError("Missing 300-material Accuracy CSV export.")
+        html = html.replace(old, new)
+    if payload.get("corrected_noisy"):
+        html = add_corrected_view(HERE, html)
     data=json.dumps(payload,allow_nan=False,ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     temp=destination.with_suffix(".building.html")
     temp.write_text(html.replace("__BENCHMARK_DATA__",data),encoding="utf-8")
     temp.replace(destination)
+
+
+def refresh_corrected(preview):
+    """Re-score compact corrected archives from a checkout containing the published full report."""
+    source=HERE/"Clean_Gaussian_Benchmark.html"
+    marker='<script id="benchmark" type="application/json">'
+    prefix,content=source.read_text(encoding="utf-8").split(marker,1)
+    encoded,suffix=content.split("</script>",1)
+    payload=json.loads(encoded)
+    revised=apply_corrected(HERE,payload,errors)
+    if revised is None:
+        raise ValueError("No grid has all twelve corrected supervised fits and the required training provenance.")
+    directory=HERE/"cache/corrected_noise_review" if preview else HERE
+    directory.mkdir(parents=True,exist_ok=True)
+    destination=directory/source.name
+    write_report(payload,destination,prefix+marker+"__BENCHMARK_DATA__</script>"+suffix)
+    export_corrected(payload,directory)
+    print(destination, "corrected widths", revised["completed_widths"])
+
+
+def export_corrected(payload,directory):
+    for name,content in corrected_exports(payload).items():
+        dest=directory/name
+        pending=dest.with_suffix(".building.csv")
+        pending.write_bytes(content.encode("utf-8"))
+        pending.replace(dest)
 
 
 def refresh_fine(preview):
@@ -92,21 +133,30 @@ def refresh_fine(preview):
     html = source.read_text(encoding="utf-8")
     marker = '<script id="benchmark" type="application/json">'
     payload = json.loads(html.split(marker, 1)[1].split("</script>", 1)[0])
-    payload["fine_df"] = build_fine_df(HERE, payload["materials"], payload["runs"], errors, payload["equal_budget"], preview)
+    payload["fine_df"] = build_fine_df(HERE, payload["materials"], archive_runs(HERE,payload), errors, payload["equal_budget"], preview)
     conditions = (payload["fine_df"] or {}).get("conditions", [])
     if not preview and len(conditions) != 60:
         raise ValueError(f"Expected all 60 fine-grid conditions, found {len(conditions)}")
+    payload.setdefault("grid_comparison", dict(rows=[], csv="", accuracy_csv_append="", preparation={}))
+    if payload.get("corrected_noisy"):
+        apply_corrected(HERE,payload,errors)
     destination = HERE / "cache/report_preview.html" if preview else source
     write_report(payload, destination)
+    if not preview and payload.get("corrected_noisy"):
+        export_corrected(payload,HERE)
     print(destination, len(conditions), "fine-grid conditions")
 
-def refresh_fine_cv(preview, width_only=False, budget_only=False, cohort_only=False):
+
+def refresh_fine_cv(preview, width_only=False, budget_only=False, cohort_only=False, w001_only=False):
     source = HERE / "Clean_Gaussian_Benchmark.html"
     marker = '<script id="benchmark" type="application/json">'
     prefix, content = source.read_text(encoding="utf-8").split(marker, 1)
     encoded, suffix = content.split("</script>", 1)
     payload = json.loads(encoded)
-    if cohort_only:
+    if w001_only:
+        key = "fine_cv_w001"
+        study = build_w001_report(HERE, payload, errors, preview)
+    elif cohort_only:
         key = "fine_cv_300"
         study = build_cohort_report(HERE, payload, errors, preview)
     elif budget_only:
@@ -119,12 +169,15 @@ def refresh_fine_cv(preview, width_only=False, budget_only=False, cohort_only=Fa
         key = "fine_cv"
         study = build_fine_cv(HERE, payload["materials"], payload["runs"], errors, payload["equal_budget"], preview)
     if not study:
-        raise ValueError(f"{key} requires all 24 saved conditions.")
+        raise ValueError(f"{key} requires all {4 if w001_only else 24} saved conditions.")
     payload[key] = study
+    if payload.get("corrected_noisy"):
+        apply_corrected(HERE,payload,errors)
     destination = HERE / "cache/report_preview.html" if preview else source
     write_report(payload, destination, prefix + marker + "__BENCHMARK_DATA__</script>" + suffix)
+    if not preview and payload.get("corrected_noisy"):
+        export_corrected(payload,HERE)
     print(destination, len(study["rows"]), key, "conditions")
-
 
 def format_schedule(metadata):
     text=metadata["description"]
@@ -229,31 +282,57 @@ def main(preview=False):
     payload["fine_cv_width"] = build_width_comparison(HERE, payload, errors, preview)
     payload["fine_cv_budget"] = build_budget_comparison(HERE, payload, errors, preview)
     payload["fine_cv_300"] = build_cohort_report(HERE, payload, errors, preview)
+    payload["fine_cv_w001"] = build_w001_report(HERE, payload, errors, preview)
     payload["architectures"] = [
         model for filename in ("arch_learned.json", "arch_native.json", "arch_pinn.json")
         for model in read(HERE/filename)
     ]
+    payload["grid_comparison"] = build_grids(HERE, materials, bank, seeds, errors, payload["equal_budget"], preview)
+    supervised = [next(m for m in payload["architectures"] if m["slug"] == s) for s in ("mlp", "fno")]
+    for model in supervised:
+        family = model["slug"]
+        model["name"] = model_name(*GRIDS[0], family)
+        payload["names"][family] = model["name"]
+        for item in bank.values():
+            if item["slug"] == family:
+                item["name"] = model["name"]
+    fine_order = []
+    for width, frames in GRIDS[1:]:
+        for model in supervised:
+            arch = supervised_architecture(model, width, frames)
+            payload["architectures"].append(arch)
+            fine_order.append(arch["slug"])
+            payload["names"][arch["slug"]] = arch["name"]
+    payload["order"] = BASE + fine_order + SOLVER + PILOT + ["cnn_pinn"]
     diag=HERE/"learn_residual_diagnostic.json"
     if diag.exists(): payload["residuals"]=read(diag)
+    revised=apply_corrected(HERE,payload,errors)
     report=HERE/("cache/report_preview.html" if preview else "Clean_Gaussian_Benchmark.html")
     write_report(payload,report)
-    if not preview:
+    if not preview and revised:
+        export_corrected(payload,HERE)
+    elif not preview:
         with (HERE/"accuracy_cost.csv").open("w",encoding="utf-8",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=list(summaries[0]));writer.writeheader();writer.writerows(summaries)
-    print(report, len(bank), "conditions",sum(row["n_test"] for row in summaries),"material predictions")
+    print(report, len(bank), "primary and historical runs", sum(row["n"] for row in bank.values()), "material predictions")
 
 
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("--preview",action="store_true")
     mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--corrected-noisy-only", action="store_true", help="Rebuild corrected supervised scores, plots and CSVs using the published HTML, compact predictions and portable training records.")
     mode.add_argument("--fine-only", action="store_true", help="Refresh 290-bin derivative-free fits using the existing HTML.")
     mode.add_argument("--fine-cv-only", action="store_true", help="Refresh the 400-update c/v PINNs using the existing HTML.")
     mode.add_argument("--fine-cv-width-only", action="store_true", help="Refresh the c/v width comparison using the saved original study in the existing HTML.")
     mode.add_argument("--fine-cv-budget-only", action="store_true", help="Compare saved wide c/v PINNs at 400 and 500 updates.")
     mode.add_argument("--fine-cv-300-only", action="store_true", help="Refresh the wide 500-update PINNs on 300 held-out materials.")
+    mode.add_argument("--fine-cv-w001-only", action="store_true", help="Add the four completed clean 0.01 correction-weight conditions to the 300-material PINN views.")
     args=p.parse_args()
-    if args.fine_cv_only or args.fine_cv_width_only or args.fine_cv_budget_only or args.fine_cv_300_only:
-        refresh_fine_cv(args.preview, width_only=args.fine_cv_width_only, budget_only=args.fine_cv_budget_only, cohort_only=args.fine_cv_300_only)
+    if args.fine_cv_only or args.fine_cv_width_only or args.fine_cv_budget_only or args.fine_cv_300_only or args.fine_cv_w001_only:
+        refresh_fine_cv(args.preview, width_only=args.fine_cv_width_only, budget_only=args.fine_cv_budget_only,
+                        cohort_only=args.fine_cv_300_only, w001_only=args.fine_cv_w001_only)
+    elif args.corrected_noisy_only:
+        refresh_corrected(args.preview)
     elif args.fine_only:
         refresh_fine(args.preview)
     else:

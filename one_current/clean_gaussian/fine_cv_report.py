@@ -51,9 +51,10 @@ def add_fine_cv_view(root, html):
     return html
 
 
-def build_fine_cv(root, materials, runs, errors, equal, preview=False, *, result_dir="fine_cv_results", cohort_size=8):
+def build_fine_cv(root, materials, runs, errors, equal, preview=False, *, result_dir="fine_cv_results", cohort_size=8,
+                  methods=METHODS, domains=("clean", "gaussian_noisy")):
     folder = root / result_dir
-    keys = [(d, n, m, s) for d in ("clean", "gaussian_noisy") for n in (1, 3) for m in METHODS for s in STARTS]
+    keys = [(d, n, m, s) for d in domains for n in (1, 3) for m in methods for s in STARTS]
     stems = [folder / f"{d}__{n}__{m}_{s}" for d, n, m, s in keys]
     if any(not p.with_suffix(ext).is_file() for p in stems for ext in (".npz", ".json")):
         return None

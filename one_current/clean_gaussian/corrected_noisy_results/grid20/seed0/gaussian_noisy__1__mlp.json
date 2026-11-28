@@ -1,0 +1,48 @@
+{
+  "train_s": 2.2017584999557585,
+  "test_s": 0.0005986400065012276,
+  "test_repeats": 10,
+  "test_batch": 128,
+  "architecture": "mlp",
+  "currents": 1,
+  "domain": "gaussian_noisy",
+  "seed": 0,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "parameters": 23888,
+  "params": 23888,
+  "epochs": 100,
+  "batch_size": 64,
+  "best_epoch": 91,
+  "best_val_coef_mse": 0.041580360382795334,
+  "loss": "MSE of eight normalized coefficients",
+  "input_rms": [
+    [
+      0.2054869681596756
+    ],
+    [
+      0.16136570274829865
+    ]
+  ],
+  "optimizer": "AdamW",
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "scheduler": "CosineAnnealingLR, per optimizer step",
+  "n_space": 20,
+  "n_time": 13,
+  "device": "CPU",
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_grid": [
+    20,
+    13
+  ],
+  "source_folder": "Corrected_noisy_data/20_13_noised",
+  "input_sha256": "6a1e256e349dba5f8bc86fddddfcabd5cef21f4edf2274dab0f079bf6b16e2d3",
+  "source_sha256": "666bcff6a8ca872bb8f498942fc151cc93504beeafca8ddf14d39f75911235d7",
+  "training_precision": "float32_tf32_off",
+  "cpu_threads": 1,
+  "checkpoint_root": "cache/corrected_noisy_supervised/20x13/checkpoints/6a1e256e349dba5f/same_fit_fp32",
+  "epoch_metrics": "same_fit",
+  "epoch_evaluation_s": 0.42089840001426637
+}

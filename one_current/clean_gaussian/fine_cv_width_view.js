@@ -18,9 +18,10 @@ function widthDownload(individual){
 function pairedCvPlot(rows,values,names,description,digits){
     const max=Math.max(...rows.flatMap(values)),unit=10**Math.floor(Math.log10(max||1)),limit=Math.ceil((max||1)/unit)*unit;
     const left=322,right=730,x=v=>left+(right-left)*v/limit;
-    let svg='<svg viewBox="0 0 760 206" style="width:100%;min-width:565px;max-width:810px" role="img" aria-label="'+description+'">';
+    const bottom=11+27*rows.length;
+    let svg='<svg viewBox="0 0 760 '+(bottom+33)+'" style="width:100%;min-width:565px;max-width:810px" role="img" aria-label="'+description+'">';
     for(let i=0;i<=5;i++){
-        const tick=i*limit/5;svg+='<line x1="'+x(tick)+'" x2="'+x(tick)+'" y1="12" y2="173" stroke="#dbe4de"/><text x="'+x(tick)+'" y="192" text-anchor="middle" font-size="12" fill="#345650">'+Number(tick.toPrecision(3))+'</text>';
+        const tick=i*limit/5;svg+='<line x1="'+x(tick)+'" x2="'+x(tick)+'" y1="12" y2="'+bottom+'" stroke="#dbe4de"/><text x="'+x(tick)+'" y="'+(bottom+19)+'" text-anchor="middle" font-size="12" fill="#345650">'+Number(tick.toPrecision(3))+'</text>';
     }
     rows.forEach((r,i)=>{
         const y=26+27*i, [a,b]=values(r);

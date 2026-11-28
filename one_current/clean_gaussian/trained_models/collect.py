@@ -9,7 +9,6 @@ import json
 import math
 import shutil
 import sys
-from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -18,9 +17,9 @@ import torch
 PACKAGE = Path(__file__).resolve().parent
 BENCHMARK = PACKAGE.parent
 sys.path.insert(0, str(BENCHMARK))
-from grid40_learn import COARSENING_PASSES, FRAMES, ConvMLP
+from grid40_learn import COARSENING_PASSES, ConvMLP
 from learn import FNO, MLP, n_params
-from prepare import CACHE, DOMAINS, paths
+from prepare import CACHE
 
 
 def sha256(path):
@@ -32,59 +31,6 @@ def csv_write(path, rows):
         writer = csv.DictWriter(dest, fieldnames=rows[0], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
-
-
-def export_materials():
-    with np.load(CACHE / "index.npz", allow_pickle=False) as z:
-        ids, split, chosen, iota = (z[k] for k in ("ids", "split", "chosen", "iota"))
-    clean, noisy = (paths(d) for d in DOMAINS)
-    if sorted(clean) != list(range(2000)) or set(clean) != set(noisy):
-        raise ValueError("Expected 2,000 paired source materials in original table order")
-    if len(set(ids)) != 1947 or chosen.shape != (1947, 3):
-        raise ValueError("Unexpected eligible material index")
-    positions = dict.fromkeys(("train", "val", "test"), 0)
-    rows = []
-    for row, (mid, group, slots) in enumerate(zip(ids, split, chosen)):
-        if len(set(slots)) != 3:
-            raise ValueError(f"Repeated current for material {mid}")
-        with np.load(clean[mid]) as a, np.load(noisy[mid]) as b:
-            for name in ("source_line_number", "material_sample_id", "iota", "current_density_a_m2"):
-                np.testing.assert_array_equal(a[name], b[name])
-            line = int(a["source_line_number"])
-            np.testing.assert_equal(mid, a["material_sample_id"].item())
-            np.testing.assert_equal(mid, line - 2)  # one-based line number includes the header
-            np.testing.assert_array_equal(iota[row], a["iota"][slots])
-            densities = a["current_density_a_m2"][slots]
-        entry = dict(benchmark_row_zero_based=row, material_id=int(mid),
-                     source_dataset_row_zero_based=line - 2, source_line_number_one_based=line,
-                     split=group, split_row_zero_based=positions[group])
-        for j, slot in enumerate(slots, start=1):
-            entry[f"current_{j}_source_index_zero_based"] = int(slot)
-            entry[f"current_{j}_iota"] = float(iota[row, j-1])
-            entry[f"current_{j}_a_m2"] = float(densities[j-1])
-        positions[group] += 1
-        rows.append(entry)
-    if positions != {"train": 1402, "val": 156, "test": 389}:
-        raise ValueError(f"Unexpected material split {positions}")
-    csv_write(PACKAGE / "materials.csv", rows)
-    split_index = {}
-    for label, original in (("train", "train"), ("validation", "val"), ("test", "test")):
-        selected_rows = np.flatnonzero(split == original)
-        split_index[label] = dict(material_ids=ids[selected_rows].tolist(),
-                                  benchmark_rows_zero_based=selected_rows.tolist())
-    (PACKAGE / "split_indices.json").write_text(json.dumps(split_index, indent=2) + "\n", encoding="utf-8")
-    return ids[split == "test"]
-
-
-def source_paths(nx, seed, stem):
-    if nx == 20:
-        ckpt = (BENCHMARK / "learned_checkpoints" if seed == 0 else
-                BENCHMARK / "learned_seeds" / f"seed_{seed}" / "checkpoints")
-        result = BENCHMARK / "results" if seed == 0 else BENCHMARK / "results_seeds" / str(seed)
-    else:
-        ckpt = CACHE / f"grid{nx}_checkpoints" / f"seed{seed}"
-        result = BENCHMARK / f"grid{nx}_results" / f"seed{seed}"
-    return ckpt / stem, result / stem
 
 
 def architecture(arch, k, nx):
@@ -116,9 +62,8 @@ def relative(path):
     return path.relative_to(BENCHMARK).as_posix()
 
 
-def collect_model(nx, nt, domain, k, seed, arch, test_ids):
-    stem = f"{domain}__{k}__{arch}"
-    source, result = source_paths(nx, seed, stem)
+def collect_model(nx, nt, domain, k, seed, arch, test_ids, *, package, sources):
+    source, result = sources
     history = json.loads((source / "training.json").read_text())
     measurements = json.loads(result.with_suffix(".json").read_text())
     losses = np.asarray(history["epoch_val_mse"], dtype=float)
@@ -152,7 +97,7 @@ def collect_model(nx, nt, domain, k, seed, arch, test_ids):
     params = n_params(model)
     np.testing.assert_equal(params, history["params"])
     np.testing.assert_equal(params, measurements["parameters"])
-    leaf = PACKAGE / f"grid_{nx}x{nt}" / domain / f"{k}_current" / f"seed_{seed}" / arch
+    leaf = package / f"grid_{nx}x{nt}" / domain / f"{k}_current" / f"seed_{seed}" / arch
     leaf.mkdir(exist_ok=True, parents=True)
     weights = leaf / "best.pt"
     original_hash = sha256(source / "best.pt")
@@ -196,22 +141,17 @@ def collect_model(nx, nt, domain, k, seed, arch, test_ids):
     )
     (leaf / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     return dict(grid_space=nx, grid_time=nt, domain=domain, currents=k, seed=seed, architecture=arch,
-                model_dir=leaf.relative_to(PACKAGE).as_posix(), parameter_count=params,
+                model_dir=leaf.relative_to(package).as_posix(), parameter_count=params,
                 best_epoch_one_based=best_epoch, best_validation_mse=float(losses.min()),
                 weight_bytes=weights.stat().st_size, weight_sha256=original_hash)
 
 
 def main():
-    torch.set_num_threads(1)
-    ids = export_materials()
-    models = []
-    for nx, nt in {20: 13, **FRAMES}.items():
-        for domain, k, seed, arch in product(DOMAINS, (1, 3), range(3), ("fno", "mlp" if nx == 20 else "conv_mlp")):
-            models.append(collect_model(nx, nt, domain, k, seed, arch, ids))
-    if len(models) != 120 or len({r["model_dir"] for r in models}) != 120:
-        raise ValueError("Expected 120 unique model folders")
-    csv_write(PACKAGE / "inventory.csv", models)
-    print(f"Verified {len(models)} checkpoints, {sum(r['weight_bytes'] for r in models):,} bytes.")
+    if __package__:
+        from .refresh import main as refresh_corrected_models
+    else:
+        from refresh import main as refresh_corrected_models
+    refresh_corrected_models()
 
 
 if __name__ == "__main__":

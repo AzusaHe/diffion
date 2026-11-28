@@ -13,8 +13,9 @@ STARTS = ("center", "fno", "fno_ttt", "mlp", "mlp_ttt")
 STOPS = ("reached_target", "used_budget", "used_walltime", "optimizer_converged")
 
 
-def build_fine_df(root, materials, bank, errors, equal_budget, preview):
-    directory = root / "fine_df_results"
+def build_fine_df(root, materials, bank, errors, equal_budget, preview, *, directory=None,
+                  domains=DOMAINS, starts=STARTS, current_counts=(1,3), write_csv=True):
+    directory = directory or (root / "fine_df_results")
     conditions = []
     all_accuracy = io.StringIO(newline="")
     accuracy_writer = csv.DictWriter(all_accuracy, fieldnames=next(csv.reader(io.StringIO(equal_budget["csv"]))))
@@ -27,11 +28,11 @@ def build_fine_df(root, materials, bank, errors, equal_budget, preview):
     chosen = np.array([m["chosen"] for m in materials[:300]])
     if not directory.exists():
         return None
-    for domain in DOMAINS:
-        for count in (1, 3):
+    for domain in domains:
+        for count in current_counts:
             cohort = f"{domain}__{count}"
             for method in METHODS:
-                for start in STARTS:
+                for start in starts:
                     stem = directory / f"{cohort}__{method}_{start}"
                     if not (stem.with_suffix(".npz").exists() and stem.with_suffix(".json").exists()):
                         continue
@@ -111,14 +112,14 @@ def build_fine_df(root, materials, bank, errors, equal_budget, preview):
                         pipeline_s_per_material=init_s + fit_s, initialization_s_per_material=init_s,
                         fit_s_per_material=fit_s, shared_training_s=summary["shared_prior_training_s"],
                         validation_search_s=summary["prior_validation_search_s"]))
-    if not conditions or (not preview and len(conditions) != len(DOMAINS) * 2 * len(METHODS) * len(STARTS)):
+    if not conditions or (not preview and len(conditions) != len(domains) * len(current_counts) * len(METHODS) * len(starts)):
         return None
     stream = io.StringIO(newline="")
     writer = csv.DictWriter(stream, fieldnames=conditions[0].keys())
     writer.writeheader()
     writer.writerows(conditions)
     summary_csv = stream.getvalue()
-    if not preview:
+    if not preview and write_csv:
         (root / "fine_df_accuracy_cost.csv").write_bytes(summary_csv.encode("utf-8"))
     checks = directory / "forward_validation.json"
     validation = json.loads(checks.read_text(encoding="utf-8")) if checks.exists() else None

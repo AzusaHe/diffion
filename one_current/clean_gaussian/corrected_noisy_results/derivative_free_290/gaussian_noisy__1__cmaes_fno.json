@@ -1,0 +1,50 @@
+{
+  "version": "corrected_df_290_v1",
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_grid": [
+    290,
+    151
+  ],
+  "domain": "gaussian_noisy",
+  "source_folder": "Corrected_noisy_data/290_151_noised",
+  "source_sha256": "bfcae21023fd9341f1eeefc02a7972c13fc861b84eee69fec7aefe5edd1781dd",
+  "input_sha256": "fd1ad078648b07f34738e1237f71464ade38ce4caceca069e0730fbbbc8793ee",
+  "index_sha256": "54ce4ad860653250202b78c2e1b31a0eb150b39b3c01e36f1673d4c9e6ca3bcb",
+  "initializer": "corrected_noisy_results/grid290/seed0/gaussian_noisy__1__fno.npz",
+  "initializer_sha256": "b4caec424722422ea694e7327e66b66ee4a8196d8fdd743eefe569355926c4f8",
+  "initializer_seed": 0,
+  "initializer_grid": [
+    290,
+    151
+  ],
+  "initializer_clip": [
+    1e-06,
+    0.999999
+  ],
+  "n_test": 300,
+  "currents": 1,
+  "starts": [
+    "center",
+    "fno"
+  ],
+  "solver_cells": 580,
+  "budget_evals": 500,
+  "target_concentration_rmse": 0.0001,
+  "max_wall_s": 300.0,
+  "timing": "Per-material elapsed wall time includes the initial objective and optimizer overhead; excludes loading, JIT and FNO inference.",
+  "evaluation_policy": "Initial evaluation consumes one call and is eligible as the best fit. BO and CMA randomization use the benchmark's material-ID seed.",
+  "observed_range": "Minimum and maximum across all valid supplied concentration bins and times for the selected currents.",
+  "paired_clean_noise": true,
+  "method": "cmaes",
+  "start": "fno",
+  "n_train": 0,
+  "train_s": 0.0,
+  "test_s": 432.8393757996382,
+  "median_fit_s": 1.5056675000232644,
+  "median_evals": 500.0,
+  "median_c_rmse": 0.0017083202723220292,
+  "statuses": {
+    "used_budget": 300
+  },
+  "fit_budget_evals": 500
+}

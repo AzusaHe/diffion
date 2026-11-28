@@ -1,0 +1,246 @@
+{
+  "dataset_revision": "corrected_grid_native_v1",
+  "source_materials": 2000,
+  "total_source_files": 10000,
+  "material_id_range": [
+    0,
+    1999
+  ],
+  "split": {
+    "train": 1402,
+    "test": 389,
+    "val": 156
+  },
+  "indexed_materials": 1947,
+  "material_index_sha256": "54ce4ad860653250202b78c2e1b31a0eb150b39b3c01e36f1673d4c9e6ca3bcb",
+  "source_digest_definition": "SHA-256 of file SHA-256 digests concatenated in ascending material ID order.",
+  "source_checks": [
+    "Filename and stored IDs, concentration dtype and shape, batch 10 ID coverage, noise seed and model",
+    "Independent current/label/fingerprint agreement across five resolutions and selected benchmark IDs",
+    "Original material split, distinct current choices, matching selected iota and supervised labels",
+    "Native time vector and masks sliced at rounded equally spaced indices of 0 through 150",
+    "Finite observed concentration, NaN padding, exact grid faces and area-weighted native cell centers"
+  ],
+  "test_time_comparison": "Legacy per-current sampling takes up to the grid frame count across each valid native trajectory, including its endpoints.",
+  "paired_native_clean_checked": true,
+  "grids": {
+    "20": {
+      "source_folder": "20_13_noised",
+      "concentration_shape": [
+        8,
+        13,
+        20
+      ],
+      "dtype": "float32",
+      "files": 2000,
+      "unique_ids": 2000,
+      "missing_ids": 0,
+      "duplicate_ids": 0,
+      "stored_id_mismatches": 0,
+      "concentration_shape_mismatches": 0,
+      "noise_seed_mismatches": 0,
+      "batch_10_valid_files": 200,
+      "batch_10_id_range": [
+        1800,
+        1999
+      ],
+      "source_sha256": "de94770c43aa75e20c49e9147d326c8e6bf4b997c6b31855097231d08555f812",
+      "indexed_source_sha256": "666bcff6a8ca872bb8f498942fc151cc93504beeafca8ddf14d39f75911235d7",
+      "test": {
+        "1": {
+          "materials": 389,
+          "trajectories": 389,
+          "observed_field_values": 53960,
+          "single_frame_trajectories": 53,
+          "all_currents_single_frame_materials": 53,
+          "materials_matching_legacy_observed_times": 63,
+          "corrected_noise_rms_vs_native_clean": 0.0007428809248850841
+        },
+        "3": {
+          "materials": 389,
+          "trajectories": 1167,
+          "observed_field_values": 162820,
+          "single_frame_trajectories": 185,
+          "all_currents_single_frame_materials": 3,
+          "materials_matching_legacy_observed_times": 20,
+          "corrected_noise_rms_vs_native_clean": 0.0007460846900007238
+        }
+      }
+    },
+    "40": {
+      "source_folder": "40_26_noised",
+      "concentration_shape": [
+        8,
+        26,
+        40
+      ],
+      "dtype": "float32",
+      "files": 2000,
+      "unique_ids": 2000,
+      "missing_ids": 0,
+      "duplicate_ids": 0,
+      "stored_id_mismatches": 0,
+      "concentration_shape_mismatches": 0,
+      "noise_seed_mismatches": 0,
+      "batch_10_valid_files": 200,
+      "batch_10_id_range": [
+        1800,
+        1999
+      ],
+      "source_sha256": "14b0a40c34482982741af24be84f08d527dfa762c72f8d306264d097fea60198",
+      "indexed_source_sha256": "3f3d6f46fcbf4b253f918efd3249a51df0fea076dd73e1298d28c14da6be2e6c",
+      "test": {
+        "1": {
+          "materials": 389,
+          "trajectories": 389,
+          "observed_field_values": 214800,
+          "single_frame_trajectories": 18,
+          "all_currents_single_frame_materials": 18,
+          "materials_matching_legacy_observed_times": 63,
+          "corrected_noise_rms_vs_native_clean": 0.0007462932117758778
+        },
+        "3": {
+          "materials": 389,
+          "trajectories": 1167,
+          "observed_field_values": 649040,
+          "single_frame_trajectories": 56,
+          "all_currents_single_frame_materials": 2,
+          "materials_matching_legacy_observed_times": 20,
+          "corrected_noise_rms_vs_native_clean": 0.0007467541492924064
+        }
+      }
+    },
+    "80": {
+      "source_folder": "80_52_noised",
+      "concentration_shape": [
+        8,
+        52,
+        80
+      ],
+      "dtype": "float32",
+      "files": 2000,
+      "unique_ids": 2000,
+      "missing_ids": 0,
+      "duplicate_ids": 0,
+      "stored_id_mismatches": 0,
+      "concentration_shape_mismatches": 0,
+      "noise_seed_mismatches": 0,
+      "batch_10_valid_files": 200,
+      "batch_10_id_range": [
+        1800,
+        1999
+      ],
+      "source_sha256": "d90b427777665f3374b0f00b50c5e88febee9aedf5443d7b6d84fffcfcc3052d",
+      "indexed_source_sha256": "6a1cfc62b832f82e49b8a4e15f25a1b09314e14257adc2fee53bda27f88067bd",
+      "test": {
+        "1": {
+          "materials": 389,
+          "trajectories": 389,
+          "observed_field_values": 855360,
+          "single_frame_trajectories": 2,
+          "all_currents_single_frame_materials": 2,
+          "materials_matching_legacy_observed_times": 63,
+          "corrected_noise_rms_vs_native_clean": 0.0007466055741915182
+        },
+        "3": {
+          "materials": 389,
+          "trajectories": 1167,
+          "observed_field_values": 2587760,
+          "single_frame_trajectories": 8,
+          "all_currents_single_frame_materials": 0,
+          "materials_matching_legacy_observed_times": 20,
+          "corrected_noise_rms_vs_native_clean": 0.0007465183552964788
+        }
+      }
+    },
+    "160": {
+      "source_folder": "160_104_noised",
+      "concentration_shape": [
+        8,
+        104,
+        160
+      ],
+      "dtype": "float32",
+      "files": 2000,
+      "unique_ids": 2000,
+      "missing_ids": 0,
+      "duplicate_ids": 0,
+      "stored_id_mismatches": 0,
+      "concentration_shape_mismatches": 0,
+      "noise_seed_mismatches": 0,
+      "batch_10_valid_files": 200,
+      "batch_10_id_range": [
+        1800,
+        1999
+      ],
+      "source_sha256": "d8a62b100cdb0aa5d7f4d47c7c483d9ddf6eb3713aee1ad673f96815c280b4e9",
+      "indexed_source_sha256": "fa60309ae990d0c89bec3885a321ab9315e85ce799a2dc2f23e90224c5f39d5f",
+      "test": {
+        "1": {
+          "materials": 389,
+          "trajectories": 389,
+          "observed_field_values": 3421280,
+          "single_frame_trajectories": 0,
+          "all_currents_single_frame_materials": 0,
+          "materials_matching_legacy_observed_times": 63,
+          "corrected_noise_rms_vs_native_clean": 0.0007463133044095035
+        },
+        "3": {
+          "materials": 389,
+          "trajectories": 1167,
+          "observed_field_values": 10344960,
+          "single_frame_trajectories": 0,
+          "all_currents_single_frame_materials": 0,
+          "materials_matching_legacy_observed_times": 20,
+          "corrected_noise_rms_vs_native_clean": 0.000746404107011046
+        }
+      }
+    },
+    "290": {
+      "source_folder": "290_151_noised",
+      "concentration_shape": [
+        8,
+        151,
+        290
+      ],
+      "dtype": "float32",
+      "files": 2000,
+      "unique_ids": 2000,
+      "missing_ids": 0,
+      "duplicate_ids": 0,
+      "stored_id_mismatches": 0,
+      "concentration_shape_mismatches": 0,
+      "noise_seed_mismatches": 0,
+      "batch_10_valid_files": 200,
+      "batch_10_id_range": [
+        1800,
+        1999
+      ],
+      "source_sha256": "8a4982db72a8d9d4e5e3622d5dbbe36fc4aaf630e1503e59fea9fb8640e730f3",
+      "indexed_source_sha256": "bfcae21023fd9341f1eeefc02a7972c13fc861b84eee69fec7aefe5edd1781dd",
+      "test": {
+        "1": {
+          "materials": 389,
+          "trajectories": 389,
+          "observed_field_values": 9003050,
+          "single_frame_trajectories": 0,
+          "all_currents_single_frame_materials": 0,
+          "materials_matching_legacy_observed_times": 389,
+          "corrected_noise_rms_vs_native_clean": 0.0007465549769360714,
+          "legacy_noise_rms_vs_native_clean": 0.0003731912300867097
+        },
+        "3": {
+          "materials": 389,
+          "trajectories": 1167,
+          "observed_field_values": 27222010,
+          "single_frame_trajectories": 0,
+          "all_currents_single_frame_materials": 0,
+          "materials_matching_legacy_observed_times": 389,
+          "corrected_noise_rms_vs_native_clean": 0.0007465688935604208,
+          "legacy_noise_rms_vs_native_clean": 0.00037329198618200605
+        }
+      }
+    }
+  },
+  "native_clean_check": "All 2,000 native files agree on IDs, coefficients, currents, statuses, times and masks. Noise RMS uses the exact valid test frames and conservative spatial means of native clean concentrations."
+}

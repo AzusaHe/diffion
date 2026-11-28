@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Training loss by model</title>
+<style>
+:root{font:16px/1.45 "Segoe UI",system-ui,sans-serif;color:#182535;background:#f5f7f7}
+*{box-sizing:border-box}body{max-width:1140px;margin:auto;padding:clamp(1rem,4vw,3.5rem)}h1{font-size:clamp(2rem,4.5vw,3.7rem);line-height:1.03;letter-spacing:-.06em;margin:.2em 0}
+p{max-width:80ch;color:#3e5063}section{background:white;border:1px solid #d2dadf;border-radius:.7rem;padding:clamp(.8rem,2.6vw,2rem);margin:1.5rem 0}label{display:grid;gap:.3rem;font-weight:600;font-size:.85rem}fieldset{border:0;padding:0;margin:0;display:flex;gap:1rem;flex-wrap:wrap}select{border:1px solid #a2b0bd;border-radius:.25rem;padding:.45rem .7rem;font:inherit;background:white;color:inherit}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.9rem 0}.legend span:before{content:"";display:inline-block;width:1.6em;vertical-align:middle;margin-right:.4em;border-top:3px solid var(--c)}.legend .archived:before{border-top-style:dashed}svg{display:block;width:100%;min-height:170px}.grid{stroke:#dde5e6}.tick{font-family:ui-monospace,monospace;font-size:13px;fill:#46556a}a{color:#004a70}.references{display:flex;gap:1.1rem;flex-wrap:wrap}output{font-variant-numeric:tabular-nums}#provenance{min-height:3rem}dt{font-weight:600;color:#415767}dd{font:1.3rem ui-monospace,monospace;margin:.2rem 1.6rem 0 0}dl{display:flex;gap:.5rem 1rem;flex-wrap:wrap}
+</style>
+<main><h1>Training loss by model</h1>
+<p>Coefficient MSE at the end of each epoch, averaged over eight normalized coefficients and all materials in the split. Select a trained checkpoint to see its full history.</p>
+<section><fieldset id="filters" aria-label="Model and chart settings"></fieldset>
+<h2 id="selected"></h2><p id="provenance"></p>
+<div class="legend" id="legend"></div>
+<svg id="chart" viewBox="0 0 980 390" role="img" aria-labelledby="ct cd"><title id="ct">Coefficient MSE across 100 epochs</title><desc id="cd"></desc></svg>
+<h3>Packaged checkpoint</h3><dl id="metrics"></dl>
+<div class="references"><a id="csv">All epoch values (CSV)</a><a id="details">Loss provenance (JSON)</a><a id="manifest">Model manifest (JSON)</a></div></section>
+<p>Training uses 1,402 materials and validation uses 156. The vertical marker shows the first epoch with minimum recorded validation loss. Test curves use the 389 held-out materials and were computed after model selection.</p>
+</main><script type="application/json" id="models">__MODEL_DATA__</script><script>
+const models=JSON.parse(document.querySelector("#models").textContent),color=["#087968","#3654a5","#a75013","#72538c"];
+const label={clean:"Clean",gaussian_noisy:"Corrected Gaussian-noisy",fno:"FNO",mlp:"Dense MLP",conv_mlp:"Conv-MLP"};
+const fields={grid:"Grid",domain:"Data",k:"Currents",arch:"Model",seed:"Seed",scale:"Y scale"};
+const select={};
+for(const [key,title] of Object.entries(fields)){
+ const container=document.createElement("label");container.textContent=title;const el=document.createElement("select");
+ container.append(el);document.querySelector("#filters").append(container);select[key]=el;el.onchange=draw;
+}
+function options(el,values,preferred){const prev=el.value||preferred;el.replaceChildren(...values.map(v=>new Option(label[v]||v,v)));if(values.includes(prev))el.value=prev;}
+function draw(){
+ let group=models;
+ for(const key of ["grid","domain","k","arch","seed"]){
+  options(select[key],[...new Set(group.map(m=>m[key]))],({grid:"290 × 151",domain:"gaussian_noisy",k:"3",arch:"fno",seed:"0"})[key]);
+  group=group.filter(m=>m[key]===select[key].value);
+ }
+ options(select.scale,["Linear","Logarithmic"],"Linear");
+ const m=group[0],same=m.status==="same_fit",exact=m.status==="exact_archived_checks";
+ document.querySelector("#selected").textContent=[label[m.arch],label[m.domain],m.grid,m.k+(m.k==="1"?" current":" currents"),"seed "+m.seed].join(" · ");
+ document.querySelector("#provenance").textContent=same?"All three curves come from this training run. The exact end-of-epoch weights were scored on the training and test materials.":exact?"Clean replay. Its validation trace, selected weights and held-out predictions matched all archived checks. Train and test curves come from the replay.":"Independent clean replay. The three solid curves come from a separate seeded fit. The dashed line shows validation loss recorded in the original run that produced the packaged checkpoint.";
+ const names=[same?"Train":"Train (replay)",same?"Validation":"Validation (replay)",same?"Test":"Test (replay)","Original validation"];
+ const curves=m.curves.slice(0,same||exact?3:4);
+ document.querySelector("#legend").innerHTML=curves.map((_,i)=>'<span class="'+(i===3?"archived":"")+'" style="--c:'+color[i]+'">'+names[i]+'</span>').join("");
+ const isLog=select.scale.value==="Logarithmic",f=x=>isLog?Math.log10(Math.max(1e-12,x)):x,inv=x=>isLog?10**x:x;
+ const trans=curves.flat().map(f),lo=isLog?Math.min(...trans)-.015:0,hi=Math.max(...trans)+(Math.max(...trans)-lo)*.04;
+ const px=e=>83+e/99*865, py=y=>318-(f(y)-lo)/(hi-lo)*276;
+ let svg='<title id="ct">Coefficient MSE over 100 epochs</title><desc id="cd">Model selected at epoch '+m.epoch+'. Exact data values in accompanying epoch CSV.</desc>';
+ for(let i=0;i<=5;i++){let y=318-i/5*276,v=inv(lo+i/5*(hi-lo));svg+='<line class="grid" x1="83" x2="948" y1="'+y+'" y2="'+y+'"/><text class="tick" x="74" y="'+(y+4)+'" text-anchor="end">'+v.toPrecision(3)+'</text>';}
+ for(const e of [1,20,40,60,80,100]) svg+='<text class="tick" x="'+px(e-1)+'" y="343" text-anchor="middle">'+e+'</text>';
+ svg+='<text class="tick" x="83" y="23">Coefficient MSE</text><text class="tick" x="515" y="375" text-anchor="middle">Epoch</text>';
+ const bestX=px(m.epoch-1);svg+='<line stroke="#616c74" stroke-dasharray="2,5" x1="'+bestX+'" x2="'+bestX+'" y1="42" y2="318"/>';
+ curves.forEach((curve,i)=>{const pts=curve.map((v,e)=>px(e).toFixed(2)+","+py(v).toFixed(2)).join(" ");svg+='<polyline fill="none" stroke="'+color[i]+'" stroke-width="2.5" '+(i===3?'stroke-dasharray="6,4"':'')+' points="'+pts+'"/>';});document.querySelector("#chart").innerHTML=svg;
+ document.querySelector("#metrics").innerHTML='<div><dt>Selected epoch</dt><dd>'+m.epoch+'</dd></div>'+["Train MSE","Validation MSE","Test MSE"].map((s,i)=>'<div><dt>'+s+'</dt><dd>'+m.best[i].toPrecision(5)+'</dd></div>').join("");
+ for(const [id,name] of [["csv","epochs.csv"],["details","loss_provenance.json"],["manifest","manifest.json"]])document.querySelector("#"+id).href=m.folder+"/"+name;
+}
+draw();
+</script></html>

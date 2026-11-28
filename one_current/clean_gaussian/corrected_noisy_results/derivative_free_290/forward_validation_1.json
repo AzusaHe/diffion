@@ -1,0 +1,30 @@
+{
+  "n_materials": 300,
+  "units": "Dimensionless concentration",
+  "dataset_revision": "corrected_grid_native_v1",
+  "description": "RMSE at the generating coefficients using 580 solver cells and all valid corrected 290-bin observations.",
+  "cases": [
+    {
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "median": 0.0007500787418490006,
+      "p95": 0.0007883381970709124,
+      "p99": 0.000848003546434616,
+      "min": 0.0007294720120019889,
+      "max": 0.0009579717602652794,
+      "at_or_below_target_1e_4": 0
+    }
+  ],
+  "paired_observation_noise": [
+    {
+      "currents": 1,
+      "pooled_rmse": 0.0007466702828347859,
+      "median": 0.0007454563090326456,
+      "p95": 0.0007649691974873066,
+      "p99": 0.0007746083957614104,
+      "min": 0.000717688363630986,
+      "max": 0.0007939127245482919,
+      "at_or_below_target_1e_4": 0
+    }
+  ]
+}

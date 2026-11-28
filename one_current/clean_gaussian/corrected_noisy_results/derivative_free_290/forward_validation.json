@@ -1,0 +1,50 @@
+{
+  "n_materials": 300,
+  "units": "Dimensionless concentration",
+  "dataset_revision": "corrected_grid_native_v1",
+  "description": "RMSE at the generating coefficients using 580 solver cells and all valid corrected 290-bin observations.",
+  "cases": [
+    {
+      "domain": "gaussian_noisy",
+      "currents": 1,
+      "median": 0.0007500787418490006,
+      "p95": 0.0007883381970709124,
+      "p99": 0.000848003546434616,
+      "min": 0.0007294720120019889,
+      "max": 0.0009579717602652794,
+      "at_or_below_target_1e_4": 0
+    },
+    {
+      "domain": "gaussian_noisy",
+      "currents": 3,
+      "median": 0.0007468194962067199,
+      "p95": 0.0007647874384000677,
+      "p99": 0.0007790871378881709,
+      "min": 0.0007345870323081965,
+      "max": 0.0008144595620500333,
+      "at_or_below_target_1e_4": 0
+    }
+  ],
+  "paired_observation_noise": [
+    {
+      "currents": 1,
+      "pooled_rmse": 0.0007466702828347859,
+      "median": 0.0007454563090326456,
+      "p95": 0.0007649691974873066,
+      "p99": 0.0007746083957614104,
+      "min": 0.000717688363630986,
+      "max": 0.0007939127245482919,
+      "at_or_below_target_1e_4": 0
+    },
+    {
+      "currents": 3,
+      "pooled_rmse": 0.0007461888498946278,
+      "median": 0.0007445621046492367,
+      "p95": 0.00075896393873619,
+      "p99": 0.0007657182092248977,
+      "min": 0.0007325042348052063,
+      "max": 0.000784096479373869,
+      "at_or_below_target_1e_4": 0
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "train_s": 30.970834799925797,
+  "test_s": 0.01383436000905931,
+  "test_repeats": 10,
+  "test_batch": 128,
+  "architecture": "fno",
+  "currents": 1,
+  "domain": "clean",
+  "seed": 2,
+  "n_train": 1402,
+  "n_val": 156,
+  "n_test": 389,
+  "parameters": 65741,
+  "params": 65741,
+  "epochs": 100,
+  "batch_size": 64,
+  "best_epoch": 83,
+  "best_val_coef_mse": 0.03313525393605232,
+  "loss": "MSE of eight normalized coefficients",
+  "input_rms": [
+    [
+      0.21253328025341034
+    ],
+    [
+      0.23457854986190796
+    ]
+  ],
+  "optimizer": "AdamW",
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "scheduler": "CosineAnnealingLR, per optimizer step",
+  "n_space": 80,
+  "n_time": 52,
+  "device": "NVIDIA GeForce RTX 4090"
+}

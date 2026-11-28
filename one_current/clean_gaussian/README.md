@@ -1,10 +1,41 @@
 # Clean and Gaussian-noisy transport benchmark
 
-Open **Accuracy** in `Clean_Gaussian_Benchmark.html` to compare PINNs trained with 1,000 optimizer updates per material alongside the supervised and numerical baselines. The report embeds the property errors, measured concentration bounds, timings and run settings. `accuracy_cost.csv` contains the original 144 benchmark rows. The primary FNO and MLP comparisons use seed 0. The report also shows the results for seeds 1 and 2.
+Open **Accuracy** in `Clean_Gaussian_Benchmark.html` for the selected domain's results. **Grid resolution** compares the five supervised grids, and the fine-grid derivative-free tab compares solver starts, timings and function calls. `all_accuracy_cost.csv` contains the displayed accuracy comparisons. `corrected_supervised_accuracy_cost.csv` contains every corrected supervised fit. The primary FNO and MLP comparisons use seed 0, and the grid comparison includes seeds 0, 1 and 2.
 
-Place `latest_synthetic_ml` alongside the `diffion-ms` checkout under `Project`. The observations and transport coefficients are read only from `latest_synthetic_ml/data/clean` and `latest_synthetic_ml/data/gaussian_noisy`. The native CNN and staged PINN use code and trainer settings from the accompanying source bundle. All learned starting weights for this experiment are trained from scratch.
+Place `latest_synthetic_ml` alongside the `diffion-ms` checkout under `Project`. The corrected Gaussian supervised models and the 290 × 151 derivative-free runs from the center and corrected 290-grid FNO starts use `latest_synthetic_ml/data/Corrected_noisy_data`. Each grid has its own supplied noise realization, timestamps and validity mask. The clean fits use `latest_synthetic_ml/data/clean`. Earlier Gaussian TTT, PINN, standalone native-CNN and other solver conditions used `latest_synthetic_ml/data/gaussian_noisy`.
 
-## Reproduce
+## Reproduce the corrected supervised fits
+
+From the repository root, use the following PowerShell commands after placing the five corrected grid folders in `latest_synthetic_ml/data/Corrected_noisy_data`. The trainer uses the published material, split and current index in `corrected_noisy_results/material_index.npz`. Each command runs both network families at one and three currents for seeds 0, 1 and 2.
+
+```powershell
+$bench = "one_current/clean_gaussian"
+foreach ($space in 290,160,80,40,20) {
+    python "$bench/corrected_grid_learn.py" --grid $space
+}
+python "$bench/trained_models/refresh.py" --publish
+python "$bench/report.py" --corrected-noisy-only
+```
+
+The FNO and the finer-grid CNN-MLPs run on CUDA. The 20 × 13 dense MLP runs on CPU. The recorded environment used Python 3.10.21, PyTorch 2.1.0, CUDA 12.1 and an NVIDIA RTX 4090. Each fit uses float32, one CPU thread and disabled TF32. Training uses the original 100 epochs, 64-material mini-batches, and 2,200 AdamW steps. The eight normalized transport coefficients have equal weight in the MSE loss. AdamW uses learning rate 0.001, weight decay 0.01, betas (0.9, 0.999), epsilon 1e-8 and a per-step cosine schedule ending at zero. Model initialization uses the listed seed and the shuffle generator uses seed + 1.
+
+Each grid's `preparation.json` records a SHA-256 fingerprint of the indexed source files in material-index order. Each run records the input fingerprint, selected validation epoch, training time and synchronized test time. The model folder includes the selected weights, the split, per-fit configuration and the 100 train, validation and test losses. Test losses are measured from saved copies of the same epoch states after validation selects the checkpoint. The time to score those curves is recorded separately as `epoch_evaluation_s`.
+
+## Reproduce the corrected 290 × 151 derivative-free fits
+
+The experiment uses the first 300 materials in the original test split. Each material is fitted at its single current and at the three-current set containing it. For each, Nelder–Mead, CMA-ES and Bayesian optimization start once at the eight-dimensional coefficient center (0.5 in every coordinate) and once at that material's seed-0 corrected 290 × 151 FNO prediction for the same currents. The 580-cell forward solver averages adjacent pairs of **simulated** cells to compare to the supplied 290 measured cells. The observed values enter the objective directly. The first objective call evaluates the start and counts toward the budget of 500 calls for Nelder–Mead or CMA-ES and 35 calls for Bayesian optimization. The RMSE target is 0.0001 and each fit has the original 300-second wall-time cap.
+
+```powershell
+python -m one_current.clean_gaussian.corrected_fine_df --currents 1 --workers 14
+python -m one_current.clean_gaussian.corrected_fine_df --currents 3 --workers 14
+python one_current/clean_gaussian/report.py --corrected-noisy-only
+```
+
+Use the CPU environment with NumPy 2.3.3, SciPy 1.16.2, Numba 0.62.1, cma 4.6.0, scikit-optimize 0.10.2 and scikit-learn 1.7.1. The per-material evaluations and timing arrays are in `corrected_noisy_results/derivative_free_290`. The reported property errors compare each material's inferred and true curves over its observed concentration interval for that current selection. `fine_df_accuracy_cost.csv` summarizes the conditions and `fine_df_materials.csv` gives each material's property errors, calls and timing. The original clean FNO starter used 20 × 13 inputs. The corrected Gaussian FNO starter uses 290 × 151 inputs.
+
+## Reproduce the original clean and historical experiments
+
+Earlier standalone PINN and TTT exports retain their original observation provenance. Use `all_accuracy_cost.csv` and the HTML's domain selector for the clean and corrected-Gaussian comparison.
 
 Run the following PowerShell commands from the `diffion-ms` root with a Python environment that has PyTorch with CUDA, NumPy, SciPy, Numba, cma, scikit-optimize and scikit-learn. CUDA is used for the FNO, native CNN and binned PINN. The numerical solver and the MLP use the CPU. The benchmark also ran the native one-current CNN-initialized PINN on the CPU. Measured times depend on concurrent CPU and GPU load.
 
@@ -33,6 +64,29 @@ python "$bench/report.py"
 
 Predictions in `results` use `DOMAIN__CURRENT_COUNT__METHOD` names. Each NPZ stores the material IDs, eight inferred unit-interval coefficients, and observed dimensionless concentration bounds. Each companion JSON records timing and settings. Raw numerical timings are individual worker wall times. Batched neural timings are divided by the evaluated cohort size in the report. Learned warm-start costs appear separately from the final fit in the CSV download.
 
+## Supervised grid comparison
+
+Open **Grid resolution** in the HTML to compare the 20 × 13, 40 × 26, 80 × 52, 160 × 104 and 290 × 151 fits. Grid dimensions are spatial bins × maximum observed time frames per current. Every fit uses the same 1,402 training, 156 validation and 389 held-out materials. The one-current input takes the first of each material's three selected currents. Each domain, current count, resolution and seed has a separately fitted model. The CSV `grid_accuracy_cost.csv` contains the 120 seed-level comparisons across all five grids.
+
+The clean spatial bins span 58, 29, 14.5, 7.25 and 4 native cells. Clean inputs use volume-weighted spatial averages and frames sampled over each trajectory's valid observations. Corrected Gaussian inputs copy the supplied spatial cells and all valid supplied time frames directly from each grid's folder. The smaller corrected grids use their supplied common time grid, so recording can end after the initial frame for an early-censored current. Each network uses the original reconstruction of velocity from the observed concentration. The own-range score uses the measured concentration interval of the current selection, grid and material being evaluated. The common-range score uses the intersection of those intervals across the five grids for that material, noise domain and current selection.
+
+The FNO retains width 11, four spectral blocks and 5 temporal × 6 spatial Fourier modes on the input grid. It has 65,741 real trainable parameters for one current and 65,851 for three at every resolution. The Conv-MLP applies the same learned 4-to-3-channel, 3 × 3 kernel and bias across currents and passes within each model. Its final pass uses stride (2 time, 3 space) on 26 × 40 features. At 80 × 52 there is one preceding pass with stride (2, 2). At 160 × 104 and 290 × 151 there are two. The 290 × 151 encoder also pools the resulting 38 × 73 features to 26 × 40 with validity weighting before the final convolution. A pooled time-validity mask supplies the fourth channel between passes. Each current contributes 546 encoded features and one scalar current to the dense head. The four Conv-MLPs have 23,999 parameters with one current and 67,759 with three, an increase of 111 over the original dense MLP.
+
+To reproduce the original finer-grid clean fits after preparing the original benchmark index, use the following commands.
+
+```powershell
+$bench = "one_current/clean_gaussian"
+python "$bench/grid40_prepare.py" --space 40 80 160 290
+foreach ($space in 40,80,160,290) {
+    python "$bench/grid40_learn.py" --grid $space --device cuda --domain clean
+}
+python "$bench/report.py"
+```
+
+The clean command runs seeds 0, 1 and 2 for both networks and both current counts. The checkpoint with the lowest validation coefficient MSE is used for inference. The original clean predictions and timings use `grid{space}_results/seed{seed}`. Corrected Gaussian predictions and timings use `corrected_noisy_results/grid{space}/seed{seed}`.
+
+The separate 290-bin derivative-free study is described [below](#derivative-free-refinement-on-290-spatial-bins).
+
 ## Equal-budget PINN comparison
 
 The binned PINNs use eight held-out materials with both observation domains and both current counts. Each one-current case uses the first current of its material's triplet. The native CNN-initialized PINN requires at least one steady, nonzero-current profile. Materials 37 and 45 have none among their selected currents in either protocol. The matched six-material cohort in Accuracy compares all PINNs on materials 2, 3, 11, 21, 22 and 32.
@@ -58,13 +112,13 @@ python "$bench/report.py"
 
 ## Derivative-free refinement on 290 spatial bins
 
-The fine-grid experiment uses the first 300 held-out materials from the original solver cohort. Each material contributes paired clean and Gaussian-noisy observations at one selected current and at the triplet containing that same current. The observed field averages consecutive groups of four of the 1,160 native spatial cells. Each current contributes all valid recorded frames, up to 151. Runs that ended early contribute only their recorded interval. The forward model advances 580 finite-volume cells and averages pairs of cells to compare with each observation.
+This section describes the original clean and historical Gaussian runs. The current Gaussian results use the [corrected 290 × 151 procedure](#reproduce-the-corrected-290--151-derivative-free-fits). The fine-grid experiment uses the first 300 held-out materials from the original solver cohort. Each material contributes paired clean and historical Gaussian observations at one selected current and at the triplet containing that same current. The original observed field averages consecutive groups of four of the 1,160 native spatial cells. Each current contributes all valid recorded frames, up to 151. Runs that ended early contribute only their recorded interval. The forward model advances 580 finite-volume cells and averages pairs of cells to compare with each observation.
 
 Each optimizer runs from five starts. FNO, MLP, FNO + TTT and MLP + TTT supply archived eight-coefficient predictions made from the original 20 × 13 inputs for that domain and current count. The uninitialized baseline sets all eight coefficients to 0.5. All three optimizers include the initial objective evaluation in the budget and may return that start. Bounded Nelder–Mead and CMA-ES have 500 evaluations each. Bayesian optimization has 35 evaluations including the start and 16 subsequent random points. The common concentration RMSE target is 0.0001 and the time limit is 300 seconds per fit.
 
 The report scores the before- and after-refinement curves on the observed interval for the same material, domain and current count, intersected with the model's concentration domain [0, 2]. The fine-grid refinement time is measured in worker wall seconds. The report lists the original initializer cost separately. A fit can improve its concentration residual and still increase the error in one of the recovered transport properties.
 
-Run from the repository root with the paired source data and archived starting predictions in place. If the original split index is missing, run `python one_current/clean_gaussian/prepare.py` to rebuild it from the paired sources. The runner prepares the 290-bin data and resumes individual fits from local checkpoints. Its 60 result files in `fine_df_results` each cover 300 materials. The accompanying JSON files record fit costs and stopping reasons.
+Run from the repository root with the paired source data, the original split index and the archived starting predictions in place. The runner prepares the 290-bin data and resumes individual fits from local checkpoints. Its 60 result files in `fine_df_results` each cover 300 materials. The accompanying JSON files record fit costs and stopping reasons.
 
 ```powershell
 python -m one_current.clean_gaussian.fine_df_run --workers 18
@@ -119,24 +173,18 @@ The runner imports the matching 500-update checkpoints from the eight-material p
 
 The expanded run used single-material GPU fits throughout. It began with separate CUDA graphs for each fit and then reused matching graphs across fits after a numerical equivalence check. The material CSV records the execution mode for each stage. The timing comparison and field checks are in `fine_cv_double_500_300_results/acceleration_validation.json` and `fine_cv_double_500_300_results/raw_field_validation.json`.
 
-#### Rebuild the published report and CSVs
-
-Open `Clean_Gaussian_Benchmark.html` and select **300-material c/v PINNs**. The summary CSV contains 24 conditions. The material CSV contains 7,200 rows with errors at initialization, update 375 and update 500, observed concentration ranges, and recorded costs. The archived coefficient and error arrays, protocol metadata, validation records and existing HTML provide the inputs to regenerate the four c/v views. These commands run from the repository root and use CPU postprocessing:
-
 ```powershell
-python one_current/clean_gaussian/report.py --fine-cv-only
-python one_current/clean_gaussian/report.py --fine-cv-width-only
-python one_current/clean_gaussian/report.py --fine-cv-budget-only
+python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500 --materials 300 --reuse-graphs
 python one_current/clean_gaussian/report.py --fine-cv-300-only
 ```
 
-#### Train a fresh 300-material cohort
+### Data-first correction with observation weight 0.01
 
-The per-material field-network weights live in each study’s local `checkpoints/` directory. For a fresh training run with the paired native observations, split index and archived FNO + TTT starts, train the eight-material 500-update pilot first. The expanded run then checks and reuses those exact 64 local pilot checkpoints before training the remaining 292 materials.
+The complete comparison covers clean observations on 300 materials, both starts, and both current counts. Each fit reuses the saved 375-update data-first fit and the exact additive-network initialization used for weights 1 and 100. The correction stage runs 125 new Adam updates. Its loss multiplies the sum of normalized concentration and reconstructed-velocity losses by 0.01. The salt, volume, and boundary residuals each have weight 1. The base fields and their scaling constants are frozen. Each pipeline uses 500 updates, with 125 newly executed for this comparison. The Gaussian-noisy runs stopped partway through the cohort.
+
+The paired report compares all three weights on the same concentration interval for each material and current selection. It records the cost of the new correction separately from the cost of the full pipeline. To run this branch with the local 300-material base checkpoints and then rebuild the report:
 
 ```powershell
-python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500
-python -m one_current.clean_gaussian.fine_cv_pinn --double-parameters --updates 500 --materials 300 --reuse-graphs
+python -m one_current.clean_gaussian.fine_cv_correction --domains clean
+python one_current/clean_gaussian/report.py --fine-cv-w001-only
 ```
-
-Use a separate checkout for a new training campaign to retain the published observations, timings and validation records. The graph-timing crossover on materials 1275 and 1355 and the native-field validation hashes describe the archived campaign. A new campaign has its own measured timings and validation records.
